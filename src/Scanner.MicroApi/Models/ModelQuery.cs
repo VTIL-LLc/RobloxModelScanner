@@ -25,7 +25,7 @@ public sealed record ModelQuery(
     string? RuleTag = null,
     int Page = 1,
     int PageSize = 50,
-    ModelSortField SortBy = ModelSortField.Model,
+    ModelSortField SortBy = ModelSortField.Found,
     bool Descending = true)
 {
     /// <summary>

@@ -5,19 +5,24 @@ namespace RobloxModelScanner.Models;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The property names and their order are the on-disk document's shape, not a private detail: the
-/// indexing service reads this file and projects it into SQLite. Renaming a member or reordering the
-/// declaration changes every row of a forty-megabyte document and breaks that reader, so the shape is
-/// treated as a contract and changes to it are made deliberately.
+/// The property names and their order are the catalogue's column list, not a private detail: the indexing
+/// service reads the table and projects it into the index. Renaming a member or reordering the declaration
+/// changes the shape both sides are written against, so it is treated as a contract and changed
+/// deliberately, in step with the column list declared by the catalogue's schema.
 /// </para>
 /// <para>
-/// The row is a positional record so that the serializer's member order follows the parameters' order,
-/// and so that a repair can produce an updated row with <c>with</c> rather than by hand. Every member
-/// except the identifier has a default, because rows written by earlier revisions of the scanner are
-/// missing whole fields and must still load.
+/// The row is a positional record so that a repair can produce an updated row with <c>with</c> rather than
+/// by hand. Every member except the identifier has a default, because rows written by earlier revisions of
+/// the scanner are missing whole fields and must still load.
+/// </para>
+/// <para>
+/// The found order is the catalogue's own. It is not something an inspection learns about an asset, so it
+/// is never supplied by one: the catalogue assigns it on insert and carries it here so that a repair
+/// rewrites a row without moving it.
 /// </para>
 /// </remarks>
 /// <param name="Model">The Roblox asset identifier, which is unique across the catalogue.</param>
+/// <param name="Sequence">The order in which the catalogue found the row, assigned when it was first inserted.</param>
 /// <param name="Date">The instant the asset was created, as reported by Roblox.</param>
 /// <param name="Name">The asset name, or an empty string when it could not be read.</param>
 /// <param name="Description">The asset description, or an empty string.</param>
@@ -30,6 +35,7 @@ namespace RobloxModelScanner.Models;
 /// <param name="Thumbnail">The thumbnail URL, or <see langword="null"/> when none was captured.</param>
 public sealed record CatalogueRecord(
     long Model,
+    long Sequence = 0,
     string Date = "",
     string Name = "",
     string Description = "",

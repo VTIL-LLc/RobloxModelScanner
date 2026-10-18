@@ -29,12 +29,12 @@ public interface IScannerIndexReader
     ScannerPaths Paths { get; }
 
     /// <summary>
-    /// Gets a value indicating whether the source catalogue document exists on disk.
+    /// Gets a value indicating whether the source catalogue database exists on disk.
     /// </summary>
     /// <remarks>
-    /// This is the scanner's own <c>models.json</c>, not the index. It answers a different question --
-    /// "has the scanner produced anything yet" -- and is reported alongside the index's state so that an
-    /// operator can tell a scanner that has never run from an indexer that has never run.
+    /// This is the scanner's own file, not the index. It answers a different question -- "has the scanner
+    /// produced anything yet" -- and is reported alongside the index's state so that an operator can tell a
+    /// scanner that has never run from an indexer that has never run.
     /// </remarks>
     bool CatalogueExists { get; }
 

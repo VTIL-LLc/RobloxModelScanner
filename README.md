@@ -130,7 +130,7 @@ ending. The only value the scanner writes is the sweep cursor.
 | `KEEP_SCORE` | `3` | Score at or above which the payload is kept beside the scanner and reported. |
 | `KEEP_MODELS` | `true` | Whether kept payloads are written to disk. |
 | `MODEL_DIRECTORY` | app directory | Where kept payloads go. |
-| `CATALOGUE_PATH` | `<app>/Files/models.json` | The catalogue. |
+| `CATALOGUE_PATH` | `<app>/Files/catalogue.db` | The catalogue. |
 | `CONTROL_PATH` | `<app>/Files/control.json` | Where the API leaves pause/stop intent. |
 | `IGNORED_CREATORS` | `5845922908,1395153130` | Creators whose assets are not downloaded. |
 | `VERBOSE` | `false` | Per-asset logging. |

@@ -90,13 +90,14 @@ namespace Scanner.WebForms.Infrastructure
         /// </summary>
         /// <remarks>
         /// A closed list rather than "whatever the address said". The value ends up in the API's own sort
-        /// parameter, and the API resolves it by name; a value it does not recognise falls back to ordering by
-        /// identifier. Keeping the list here as well means a typo in an address produces the default order
-        /// rather than a request that names a column nothing reads.
+        /// parameter, and the API resolves it by name; a value it does not recognise falls back to its own
+        /// default, which is the order the catalogue found the rows in. Keeping the list here as well means a
+        /// typo in an address produces that default rather than a request that names a column nothing reads.
         /// </remarks>
         private static readonly string[] Sortable =
         {
-            "Model", "Date", "Name", "CreatorName", "CreatorId", "HasScripts", "Score", "Tags", "Description",
+            "Found", "Model", "Date", "Name", "CreatorName", "CreatorId", "HasScripts", "Score", "Tags",
+            "Description",
         };
 
         /// <summary>
@@ -121,7 +122,11 @@ namespace Scanner.WebForms.Infrastructure
             {
                 Page = 1,
                 PageSize = DefaultPageSize,
-                SortBy = "Model",
+                // The default order is the order the catalogue found the rows in, most recent first. A visitor
+                // arriving at the catalogue without a filter wants what the scanner has just discovered, which
+                // is not the same list as the highest asset identifiers: those are what Roblox published most
+                // recently, and this sweep has been running for years.
+                SortBy = "Found",
                 Descending = true,
             };
 

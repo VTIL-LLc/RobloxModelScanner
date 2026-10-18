@@ -40,8 +40,8 @@ public sealed class SqliteCatalogStatistics : ICatalogStatistics
     /// <summary>The bookkeeping key holding the moment the last migration committed.</summary>
     private const string CompletedKey = "index.completedUtc";
 
-    /// <summary>The bookkeeping key holding the length of the indexed catalogue revision.</summary>
-    private const string SourceLengthKey = "source.length";
+    /// <summary>The bookkeeping key holding the revision of the indexed catalogue.</summary>
+    private const string SourceRevisionKey = "source.revision";
 
     /// <summary>How many detections the summary lists.</summary>
     /// <remarks>
@@ -103,7 +103,7 @@ public sealed class SqliteCatalogStatistics : ICatalogStatistics
                 MaximumScore = totals.MaximumScore,
                 Detections = totals.Detections,
                 IndexedUtc = ReadTimestamp(connection),
-                SourceLength = ReadSourceLength(connection),
+                SourceRevision = ReadSourceRevision(connection),
                 TopDetections = ReadDetections(connection),
                 Periods = ReadPeriods(connection),
             };
@@ -178,13 +178,13 @@ public sealed class SqliteCatalogStatistics : ICatalogStatistics
             : null;
 
     /// <summary>
-    /// Reads the length of the catalogue revision the index was built from.
+    /// Reads the revision of the catalogue the index was built from.
     /// </summary>
     /// <param name="connection">The open read-only connection.</param>
-    /// <returns>The length, or zero when it is not recorded.</returns>
-    private static long ReadSourceLength(SqliteConnection connection) =>
-        long.TryParse(ReadMeta(connection, SourceLengthKey), NumberStyles.Integer, CultureInfo.InvariantCulture, out long length)
-            ? length
+    /// <returns>The revision, or zero when it is not recorded.</returns>
+    private static long ReadSourceRevision(SqliteConnection connection) =>
+        long.TryParse(ReadMeta(connection, SourceRevisionKey), NumberStyles.Integer, CultureInfo.InvariantCulture, out long revision)
+            ? revision
             : 0;
 
     /// <summary>

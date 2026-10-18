@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Microsoft.Data.Sqlite;
 
 using Microsoft.Extensions.Logging;
 
@@ -86,7 +86,7 @@ internal static class Program
         using HttpClient roblox = CreateRobloxClient(logger, settings.RobloxCookie);
         using HttpClient webhooks = new() { Timeout = TimeSpan.FromSeconds(20) };
 
-        IModelCatalogue catalogue = new JsonModelCatalogue(
+        IModelCatalogue catalogue = new SqliteModelCatalogue(
             settings.CataloguePath,
             settings.FlushInterval,
             settings.FlushRows);
@@ -95,11 +95,11 @@ internal static class Program
         {
             await catalogue.LoadAsync(stop.Token);
         }
-        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is SqliteException or IOException or UnauthorizedAccessException)
         {
             // Refusing to start is the whole point of this branch. A catalogue that cannot be read is
             // still the operator's only copy of a hundred thousand findings, and starting a sweep beside it
-            // would replace the file on the first flush with a catalogue that had loaded as empty.
+            // would commit over the database on the first flush with a catalogue that had loaded as empty.
             logger.LogCritical(
                 exception,
                 "The catalogue at {Path} could not be read. Nothing was changed.",

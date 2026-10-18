@@ -121,7 +121,7 @@ public sealed record ScannerSettings
     public required string ModelDirectory { get; init; }
 
     /// <summary>
-    /// The absolute path of the JSON catalogue.
+    /// The absolute path of the catalogue database.
     /// </summary>
     public required string CataloguePath { get; init; }
 

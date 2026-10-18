@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
@@ -16,27 +15,27 @@ using Scanner.Indexer.Options;
 namespace Scanner.Indexer.Implementation;
 
 /// <summary>
-/// Migrates the scanner's JSON catalogue into the SQLite index and is the only writer of that database.
+/// Migrates the scanner's catalogue into the SQLite index and is the only writer of that database.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The scanner publishes its catalogue as a single JSON document that is rewritten in full whenever new
-/// assets are found. Reading and parsing tens of megabytes of JSON per request does not scale, so the
-/// document is projected into indexed tables once per change. Keeping that projection in its own service
-/// means the API can open the database read-only, which removes lock contention entirely and makes it
-/// impossible for a request to corrupt the index or trigger an unbounded migration.
+/// The scanner discovers assets at a rate that makes reading its catalogue per request impossible: the
+/// catalogue holds six figures of rows and keeps growing. It is projected into indexed tables instead, and
+/// keeping that projection in its own service means the API can open the database read-only, which removes
+/// lock contention entirely and makes it impossible for a request to corrupt the index or trigger an
+/// unbounded migration.
 /// </para>
 /// <para>
-/// Migration is driven by a cheap fingerprint of the source document -- its length and last-write time --
-/// plus an inspect interval. A pass that finds the fingerprint unchanged does one stat and stops. When the
-/// fingerprint has moved, the whole document is streamed into a fresh set of rows inside a single
-/// transaction: readers continue to see the previous, complete index until the commit, and a malformed
-/// document rolls the transaction back and leaves that previous index intact.
+/// Migration is driven by the catalogue's revision number and an inspect interval. A pass that finds the
+/// revision unchanged does one keyed lookup and stops. When it has moved, the whole catalogue is streamed
+/// into a fresh set of rows inside a single transaction: readers continue to see the previous, complete
+/// index until the commit, and a failed pass rolls the transaction back and leaves that previous index
+/// intact.
 /// </para>
 /// <para>
-/// Peak memory is one catalogue row rather than the whole document, because the reader yields rows as they
-/// are parsed. The source file is opened with <see cref="FileShare.Delete"/> so the scanner's atomic
-/// replace is never blocked by a concurrent migration.
+/// Peak memory is one catalogue row rather than the whole table, because the reader yields rows as the
+/// statement walks them. Nothing here holds the catalogue open: each read is its own short-lived
+/// connection, so the scanner's own writes are never queued behind a migration that is merely slow.
 /// </para>
 /// </remarks>
 public sealed class SqliteIndexWriter : IIndexWriter
@@ -109,14 +108,15 @@ public sealed class SqliteIndexWriter : IIndexWriter
     {
         await EnsureSchemaAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!File.Exists(_paths.ModelsPath))
+        long? catalogueRevision = ReadCatalogueRevision();
+
+        if (catalogueRevision is null)
         {
             _lastAttemptUtc = DateTimeOffset.UtcNow;
             return IndexBuildOutcome.CatalogueMissing;
         }
 
-        FileInfo source = new(_paths.ModelsPath);
-        IndexFingerprint current = new(source.Length, source.LastWriteTimeUtc.Ticks);
+        IndexFingerprint current = new(catalogueRevision.Value);
 
         if (current == _indexedFingerprint) return IndexBuildOutcome.UpToDate;
 
@@ -135,10 +135,11 @@ public sealed class SqliteIndexWriter : IIndexWriter
         try
         {
             // Re-inspect under the gate: the revision may already have been migrated while we waited.
-            source.Refresh();
-            if (!source.Exists) return IndexBuildOutcome.CatalogueMissing;
+            catalogueRevision = ReadCatalogueRevision();
 
-            current = new IndexFingerprint(source.Length, source.LastWriteTimeUtc.Ticks);
+            if (catalogueRevision is null) return IndexBuildOutcome.CatalogueMissing;
+
+            current = new IndexFingerprint(catalogueRevision.Value);
             if (current == _indexedFingerprint) return IndexBuildOutcome.UpToDate;
 
             _lastInspectTick = Environment.TickCount64;
@@ -154,6 +155,18 @@ public sealed class SqliteIndexWriter : IIndexWriter
             _migrationGate.Release();
         }
     }
+
+    /// <summary>
+    /// Reads the revision the catalogue is at.
+    /// </summary>
+    /// <returns>The revision, or <see langword="null"/> when there is no catalogue to read.</returns>
+    /// <remarks>
+    /// The revision is recorded before the rows are walked rather than after. If the scanner commits while
+    /// the pass is running, the index records the older revision and contains the newer rows, and the next
+    /// pass rebuilds against a number that has moved. Recording the later revision instead would let the
+    /// index claim to reflect rows it had not yet read, which is the only direction of error that matters.
+    /// </remarks>
+    private long? ReadCatalogueRevision() => _reader.ReadRevision(_paths.CataloguePath);
 
     /// <inheritdoc />
     public IndexFingerprint GetIndexedFingerprint() => _indexedFingerprint;
@@ -212,9 +225,26 @@ public sealed class SqliteIndexWriter : IIndexWriter
                 // response, so the previous bookkeeping is discarded and the next pass rewrites everything.
                 _logger.LogWarning(
                     "The index schema on disk is version {Existing} but this service writes version {Current}. " +
-                    "The index will be rebuilt.",
+                    "The index will be rebuilt from the catalogue.",
                     existingVersion,
                     SchemaVersion);
+
+                // Creating the current schema over the old tables is not enough. Every statement in it is
+                // guarded by IF NOT EXISTS, so an old table survives with the old columns, and the migration
+                // then fails on the first column it names that the old table does not have -- which is
+                // exactly what happened when the found order was added. Dropping first is what makes the
+                // rebuild real, and it costs only the work the rebuild was about to do anyway.
+                using (SqliteCommand drop = connection.CreateCommand())
+                {
+                    drop.CommandText = SqliteIndexSchema.DropSql;
+                    drop.ExecuteNonQuery();
+                }
+
+                using (SqliteCommand create = connection.CreateCommand())
+                {
+                    create.CommandText = SqliteIndexSchema.CreateSql;
+                    create.ExecuteNonQuery();
+                }
 
                 _indexedFingerprint = IndexFingerprint.Unknown;
             }
@@ -274,7 +304,7 @@ public sealed class SqliteIndexWriter : IIndexWriter
             int models = 0;
             int detections = 0;
 
-            foreach (CatalogueRow row in _reader.Read(_paths.ModelsPath, cancellationToken))
+            foreach (CatalogueRow row in _reader.Read(_paths.CataloguePath, cancellationToken))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -303,8 +333,7 @@ public sealed class SqliteIndexWriter : IIndexWriter
             DateTimeOffset completedUtc = DateTimeOffset.UtcNow;
 
             WriteMeta(connection, transaction, SqliteIndexSchema.MetaSchemaVersion, SchemaVersion.ToString(CultureInfo.InvariantCulture));
-            WriteMeta(connection, transaction, SqliteIndexSchema.MetaSourceLength, fingerprint.Length.ToString(CultureInfo.InvariantCulture));
-            WriteMeta(connection, transaction, SqliteIndexSchema.MetaSourceWriteTicks, fingerprint.WriteTicks.ToString(CultureInfo.InvariantCulture));
+            WriteMeta(connection, transaction, SqliteIndexSchema.MetaSourceRevision, fingerprint.Revision.ToString(CultureInfo.InvariantCulture));
             WriteMeta(connection, transaction, SqliteIndexSchema.MetaModelCount, models.ToString(CultureInfo.InvariantCulture));
             WriteMeta(connection, transaction, SqliteIndexSchema.MetaDetectionCount, detections.ToString(CultureInfo.InvariantCulture));
             WriteMeta(connection, transaction, SqliteIndexSchema.MetaCompletedUtc, completedUtc.ToString("O", CultureInfo.InvariantCulture));
@@ -324,20 +353,18 @@ public sealed class SqliteIndexWriter : IIndexWriter
 
             return IndexBuildOutcome.Rebuilt;
         }
-        catch (JsonException exception)
-        {
-            // A partial or corrupt document must not replace a good index. The transaction is never
-            // committed, so it rolls back, and the fingerprint is left unchanged so the next pass re-reads
-            // the document once the scanner has finished writing it.
-            return RecordFailure(IndexBuildOutcome.CatalogueInvalid, exception, "The catalogue document is not valid JSON.");
-        }
         catch (IOException exception)
         {
             return RecordFailure(IndexBuildOutcome.StorageFailed, exception, "The catalogue or index could not be read or written.");
         }
         catch (SqliteException exception)
         {
-            return RecordFailure(IndexBuildOutcome.StorageFailed, exception, "The index database rejected the migration.");
+            // Two databases are in play here: the catalogue is being read and the index is being written,
+            // and a refusal from either arrives as this one exception type. Separating them would mean
+            // guessing from the message, and the distinction that matters to an operator survives anyway --
+            // the previous index is still in place, the pass failed, and the text below says which layer
+            // refused it.
+            return RecordFailure(IndexBuildOutcome.StorageFailed, exception, "The catalogue or index database rejected the migration.");
         }
         catch (OperationCanceledException)
         {
@@ -390,12 +417,13 @@ public sealed class SqliteIndexWriter : IIndexWriter
         command.Transaction = transaction;
         command.CommandText = """
             INSERT OR REPLACE INTO Models
-                (ModelId, Date, Name, Description, CreatorName, CreatorId, HasScripts, Tags, Score, AssetUrl, Thumbnail)
+                (ModelId, Sequence, Date, Name, Description, CreatorName, CreatorId, HasScripts, Tags, Score, AssetUrl, Thumbnail)
             VALUES
-                ($modelId, $date, $name, $description, $creatorName, $creatorId, $hasScripts, $tags, $score, $assetUrl, $thumbnail);
+                ($modelId, $sequence, $date, $name, $description, $creatorName, $creatorId, $hasScripts, $tags, $score, $assetUrl, $thumbnail);
             """;
 
         command.Parameters.Add("$modelId", SqliteType.Integer);
+        command.Parameters.Add("$sequence", SqliteType.Integer);
         command.Parameters.Add("$date", SqliteType.Text);
         command.Parameters.Add("$name", SqliteType.Text);
         command.Parameters.Add("$description", SqliteType.Text);
@@ -417,12 +445,13 @@ public sealed class SqliteIndexWriter : IIndexWriter
     /// <param name="command">The prepared model insert command.</param>
     /// <param name="row">The row to bind.</param>
     /// <remarks>
-    /// Text members are coerced rather than trusted: a catalogue row may carry a JSON null for a name or a
-    /// description, and the columns are declared <c>NOT NULL</c>.
+    /// Text members are coerced rather than trusted: a catalogue row may carry an empty string for a name or
+    /// a description, and the columns are declared <c>NOT NULL</c>.
     /// </remarks>
     private static void BindModel(SqliteCommand command, CatalogueRow row)
     {
         command.Parameters["$modelId"].Value = row.Model;
+        command.Parameters["$sequence"].Value = row.Sequence;
         command.Parameters["$date"].Value = row.Date ?? string.Empty;
         command.Parameters["$name"].Value = row.Name ?? string.Empty;
         command.Parameters["$description"].Value = row.Description ?? string.Empty;
@@ -547,19 +576,13 @@ public sealed class SqliteIndexWriter : IIndexWriter
     /// <returns>The recorded fingerprint, or <see cref="IndexFingerprint.Unknown"/> when none is recorded.</returns>
     private static IndexFingerprint ReadFingerprint(SqliteConnection connection)
     {
-        bool hasLength = long.TryParse(
-            ReadMeta(connection, SqliteIndexSchema.MetaSourceLength),
+        bool hasRevision = long.TryParse(
+            ReadMeta(connection, SqliteIndexSchema.MetaSourceRevision),
             NumberStyles.Integer,
             CultureInfo.InvariantCulture,
-            out long length);
+            out long revision);
 
-        bool hasTicks = long.TryParse(
-            ReadMeta(connection, SqliteIndexSchema.MetaSourceWriteTicks),
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out long ticks);
-
-        return hasLength && hasTicks ? new IndexFingerprint(length, ticks) : IndexFingerprint.Unknown;
+        return hasRevision ? new IndexFingerprint(revision) : IndexFingerprint.Unknown;
     }
 
     /// <summary>

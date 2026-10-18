@@ -25,12 +25,15 @@ artifacts/
 .env
 *.log
 
-# The catalogue, and the copies of it the previous revision kept beside the built
-# scanner. Forty megabytes, rewritten on every flush, and rebuilt by scanning
-# rather than by building.
-models.json
-models.json.tmp
-**/Files/models.json
+# The catalogue database, and the copies of it the previous revision kept beside the
+# built scanner. A hundred thousand rows, appended to on every flush, and rebuilt by
+# scanning rather than by building.
+catalogue.db
+catalogue.db-wal
+catalogue.db-shm
+**/Files/catalogue.db
+**/Files/catalogue.db-wal
+**/Files/catalogue.db-shm
 **/Files/control.json
 **/Files/*.tmp
 

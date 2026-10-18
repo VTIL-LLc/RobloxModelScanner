@@ -35,9 +35,9 @@ public static class ServiceCollectionExtensions
     private const string FilesDirectoryName = "Files";
 
     /// <summary>
-    /// The file name of the scanner's JSON catalogue.
+    /// The file name of the scanner's catalogue database.
     /// </summary>
-    private const string CatalogueFileName = "models.json";
+    private const string CatalogueFileName = "catalogue.db";
 
     /// <summary>
     /// The file name of the SQLite index.
@@ -57,7 +57,13 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// The environment variable that overrides the catalogue location.
     /// </summary>
-    private const string ModelsPathEnvironmentVariable = "SCANNER_MODELS_PATH";
+    /// <remarks>
+    /// It was named for the JSON document the catalogue used to be. The variable was renamed with the
+    /// format rather than kept as an alias: a deployment that still names the old variable is a deployment
+    /// whose indexer would otherwise read a file the scanner no longer writes, and the loud failure it gets
+    /// instead is the right one.
+    /// </remarks>
+    private const string CataloguePathEnvironmentVariable = "SCANNER_CATALOGUE_PATH";
 
     /// <summary>
     /// The environment variable that overrides the index database location.
@@ -86,14 +92,14 @@ public static class ServiceCollectionExtensions
                 // count as "not configured" so that a settings file carrying an empty placeholder cannot
                 // shadow the environment, which is the only place a credential belongs on a deployed host.
                 options.Token = ResolveToken(options.Token, configuration);
-                options.ModelsPath = Coalesce(options.ModelsPath, configuration[ModelsPathEnvironmentVariable]);
+                options.CataloguePath = Coalesce(options.CataloguePath, configuration[CataloguePathEnvironmentVariable]);
                 options.IndexPath = Coalesce(options.IndexPath, configuration[IndexPathEnvironmentVariable]);
                 options.AllowedNetworks = Coalesce(options.AllowedNetworks, configuration[AllowedNetworksEnvironmentVariable]);
             });
 
         services.AddSingleton(static provider => ResolvePaths(provider.GetRequiredService<IOptions<IndexerOptions>>().Value));
 
-        services.AddSingleton<ICatalogueReader, CatalogueFileReader>();
+        services.AddSingleton<ICatalogueReader, CatalogueDatabaseReader>();
         services.AddSingleton<SqliteIndexWriter>();
         services.AddSingleton<IIndexWriter>(static provider => provider.GetRequiredService<SqliteIndexWriter>());
         services.AddSingleton<IIndexStatusProvider, IndexStatusProvider>();
@@ -144,15 +150,15 @@ public static class ServiceCollectionExtensions
     {
         string filesDirectory = Path.Combine(AppContext.BaseDirectory, FilesDirectoryName);
 
-        string modelsPath = ResolvePath(options.ModelsPath, Path.Combine(filesDirectory, CatalogueFileName));
+        string cataloguePath = ResolvePath(options.CataloguePath, Path.Combine(filesDirectory, CatalogueFileName));
 
         string defaultIndexPath = Path.Combine(
-            Path.GetDirectoryName(modelsPath) ?? filesDirectory,
+            Path.GetDirectoryName(cataloguePath) ?? filesDirectory,
             IndexFileName);
 
         string indexPath = ResolvePath(options.IndexPath, defaultIndexPath);
 
-        return new IndexerPaths(modelsPath, indexPath);
+        return new IndexerPaths(cataloguePath, indexPath);
     }
 
     /// <summary>

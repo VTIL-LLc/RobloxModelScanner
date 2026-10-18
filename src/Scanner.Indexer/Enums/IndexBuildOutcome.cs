@@ -15,15 +15,12 @@ public enum IndexBuildOutcome
     /// <summary>A migration committed and the index now reflects the current catalogue revision.</summary>
     Rebuilt = 1,
 
-    /// <summary>The catalogue document is absent, so there was nothing to index.</summary>
+    /// <summary>The catalogue is absent, so there was nothing to index.</summary>
     CatalogueMissing = 2,
 
-    /// <summary>The catalogue document could not be parsed; the previous index was retained.</summary>
-    CatalogueInvalid = 3,
-
     /// <summary>The index database could not be written; the previous index was retained.</summary>
-    StorageFailed = 4,
+    StorageFailed = 3,
 
     /// <summary>Another migration was already running and the caller did not wait for it.</summary>
-    Busy = 5
+    Busy = 4
 }

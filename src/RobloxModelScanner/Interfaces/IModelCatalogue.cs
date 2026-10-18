@@ -3,22 +3,22 @@ using RobloxModelScanner.Models;
 namespace RobloxModelScanner.Interfaces;
 
 /// <summary>
-/// The scanner's view of the JSON catalogue it owns.
+/// The scanner's view of the catalogue it owns.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The catalogue is a single JSON array on disk, which has one important consequence the interface is
-/// shaped around: saving any part of it means rewriting all of it. The interface therefore separates
-/// changing the catalogue from saving it. A caller appends or replaces a row as often as it likes and
-/// the write happens later, in one pass, when the implementation decides it is due. An implementation
-/// that saved on every mutation would be quadratic in the size of the document, which is precisely the
-/// behaviour this design exists to avoid.
+/// The interface separates changing the catalogue from saving it, and it went on doing that when the
+/// catalogue became a database. The reason changed with the storage rather than the shape: a rewritten
+/// JSON array made saving anything expensive, so batching was the only way a sweep could afford to
+/// record what it found, whereas a database makes one row cheap and batching exists because a commit per
+/// discovered asset would put a disk flush on the path of every inspection. Callers are written against
+/// the separation, which is why it survived a change that removed its original justification.
 /// </para>
 /// <para>
-/// The whole document is held in memory. That is a deliberate trade: a forty-megabyte array is a
-/// bounded, knowable working set, whereas streaming a rewrite and mutating rows in place at the same
-/// time is not possible with a format that requires an enclosing bracket, and re-reading the file to
-/// find one row is what made the previous revision spend its life parsing.
+/// An implementation decides when a write is due, and the two things it weighs are the same two a
+/// reasonable operator would: how many changes have accumulated, and how long the oldest of them has
+/// been waiting. A caller that needs the catalogue on disk regardless asks with
+/// <see cref="FlushAsync"/> and says so.
 /// </para>
 /// </remarks>
 public interface IModelCatalogue

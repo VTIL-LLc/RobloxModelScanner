@@ -6,9 +6,9 @@ namespace Scanner.Indexer.Options;
 /// <remarks>
 /// <para>
 /// The service has two responsibilities with very different exposure. The migration loop reads the
-/// scanner's JSON catalogue and writes the SQLite index; the control plane answers internal status and
-/// rebuild requests. Only the second is reachable over a socket, and its binding, its network allow-list
-/// and its token are all configured here so that an operator can tighten them without touching code.
+/// scanner's catalogue and writes the SQLite index; the control plane answers internal status and rebuild
+/// requests. Only the second is reachable over a socket, and its binding, its network allow-list and its
+/// token are all configured here so that an operator can tighten them without touching code.
 /// </para>
 /// <para>
 /// No secret is committed. The control token is read from the <c>SCANNER_INDEXER_TOKEN</c> environment
@@ -24,10 +24,10 @@ public sealed class IndexerOptions
     public const string SectionName = "Indexer";
 
     /// <summary>
-    /// Gets or sets the absolute path to the scanner's <c>models.json</c> catalogue.
+    /// Gets or sets the absolute path to the scanner's catalogue database.
     /// </summary>
-    /// <value>When empty, <c>Files/models.json</c> beside the application is used.</value>
-    public string? ModelsPath { get; set; }
+    /// <value>When empty, <c>Files/catalogue.db</c> beside the application is used.</value>
+    public string? CataloguePath { get; set; }
 
     /// <summary>
     /// Gets or sets the absolute path to the SQLite index this service owns.
@@ -39,9 +39,8 @@ public sealed class IndexerOptions
     /// Gets or sets the minimum number of seconds between catalogue inspect passes.
     /// </summary>
     /// <value>
-    /// Defaults to <c>5</c>. The migration itself only runs when the catalogue's fingerprint changes;
-    /// this interval governs how promptly a change is noticed, and inspecting the file costs one
-    /// stat call.
+    /// Defaults to <c>5</c>. The migration itself only runs when the catalogue's revision changes; this
+    /// interval governs how promptly a change is noticed, and noticing one costs a single keyed lookup.
     /// </value>
     public int RefreshSeconds { get; set; } = 5;
 

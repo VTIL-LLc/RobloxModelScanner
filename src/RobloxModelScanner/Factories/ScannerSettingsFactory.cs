@@ -129,7 +129,7 @@ public static class ScannerSettingsFactory
             CataloguePath = ResolvePath(
                 environment,
                 "CATALOGUE_PATH",
-                Path.Combine(applicationDirectory, "Files", "models.json")),
+                Path.Combine(applicationDirectory, "Files", "catalogue.db")),
             ControlPath = ResolvePath(
                 environment,
                 "CONTROL_PATH",

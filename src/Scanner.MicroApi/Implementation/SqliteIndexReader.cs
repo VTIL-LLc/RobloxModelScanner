@@ -75,7 +75,7 @@ public sealed class SqliteIndexReader : IScannerIndexReader
     public ScannerPaths Paths => _paths;
 
     /// <inheritdoc />
-    public bool CatalogueExists => File.Exists(_paths.ModelsPath);
+    public bool CatalogueExists => File.Exists(_paths.CataloguePath);
 
     /// <inheritdoc />
     public bool IndexExists => File.Exists(_paths.IndexPath);

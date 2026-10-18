@@ -16,11 +16,25 @@
     -->
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
+    <!--
+      The catalogue is a SQLite database, and this is the provider that reads and writes it. It is the
+      same package at the same version the indexing service and the API already carry, so a deployment
+      ends up with one native library rather than three that could drift apart.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Features.AssetAnalysis/Features.AssetAnalysis.csproj" />
     <ProjectReference Include="../Features.AssetDelivery/Features.AssetDelivery.csproj" />
     <ProjectReference Include="../Features.Tray/Features.Tray.csproj" />
+    <!--
+      The catalogue's table, its bookkeeping keys and its column list are declared in the contract
+      assembly, which is the one place both the process that writes the catalogue and the process that
+      reads it compile against. The scanner referenced nothing of the index until the catalogue became
+      the indexing service's input rather than a document it parsed, and the reference exists so that a
+      name cannot be changed on one side of that boundary and left behind on the other.
+    -->
+    <ProjectReference Include="../Scanner.IndexContract/Scanner.IndexContract.csproj" />
     <!--
       The references to Roblox.Wcf, Scanner.WcfServiceHost and ServiceInstallers
       were removed here. None of them was used by any source file in this

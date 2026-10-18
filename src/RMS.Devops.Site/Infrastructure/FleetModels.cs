@@ -125,8 +125,8 @@ namespace RMS.Devops.Site.Infrastructure
         /// <summary>Gets or sets the moment the index was built.</summary>
         public DateTime? IndexedUtc { get; set; }
 
-        /// <summary>Gets or sets the length of the catalogue the index was built from.</summary>
-        public long SourceLength { get; set; }
+        /// <summary>Gets or sets the revision of the catalogue the index was built from.</summary>
+        public long SourceRevision { get; set; }
 
         /// <summary>Gets or sets the most frequent detections.</summary>
         public List<TagStatistic> TopDetections { get; set; }

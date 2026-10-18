@@ -6,7 +6,7 @@ order: 30
 # The scanner
 
 `src/RobloxModelScanner` walks Roblox's asset identifier space, downloads what it finds, analyses it against the
-rule set and records the result in `models.json`. It is Windows-only because of its tray indicator; everything
+rule set and records the result in `catalogue.db`. It is Windows-only because of its tray indicator; everything
 else in the stack runs elsewhere.
 
 ## Two passes
@@ -41,7 +41,7 @@ lines are written back as they were, with the file's own line ending.
 | `KEEP_SCORE` | `3` | Score at or above which the payload is kept on disk. |
 | `KEEP_MODELS` | `true` | Whether kept payloads are written at all. |
 | `MODEL_DIRECTORY` | the app directory | Where kept payloads go. |
-| `CATALOGUE_PATH` | `<app>/Files/models.json` | The catalogue. |
+| `CATALOGUE_PATH` | `<app>/Files/catalogue.db` | The catalogue database. |
 | `CONTROL_PATH` | `<app>/Files/control.json` | Where pause and stop intent is written. |
 | `IGNORED_CREATORS` | two identifiers | Creators whose assets are not downloaded. Setting it replaces the default list. |
 | `VERBOSE` | `false` | Per-asset logging. |

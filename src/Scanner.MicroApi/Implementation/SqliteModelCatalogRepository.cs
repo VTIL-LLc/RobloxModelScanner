@@ -202,6 +202,7 @@ public sealed class SqliteModelCatalogRepository : IModelCatalogRepository
         ModelSortField.Score => "Score",
         ModelSortField.Tags => "Tags",
         ModelSortField.Description => "Description",
+        ModelSortField.Found => "Sequence",
         _ => "ModelId"
     };
 

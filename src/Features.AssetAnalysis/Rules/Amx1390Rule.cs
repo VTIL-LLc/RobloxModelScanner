@@ -12,9 +12,9 @@ namespace RobloxModelScanner.Features.AssetAnalysis.Rules;
 /// <para>
 /// Almost all of that material is gone. It was not taken from anyone: the place it was published
 /// stopped serving it, and the mark survived in whatever copies were kept. That is what makes it worth
-/// flagging, and it is the opposite of the reason this rule used to give -- a match means a model that
-/// cannot be obtained any more has been found, so the useful thing to do with one is keep it, not treat
-/// it as evidence that somebody stole script content.
+/// flagging, and it is the opposite of the reason this rule used to give -- a match is a pointer to a
+/// model that cannot be obtained any more, so the useful thing to do with one is keep it, not treat it
+/// as evidence that somebody stole script content.
 /// </para>
 /// <para>
 /// A reviewer who reads this rule as a hazard would be misled twice: they would look for a protection
@@ -29,13 +29,20 @@ internal sealed class Amx1390Rule : IDetectionRule
     /// Gets the stable label written into catalogue records for this rule.
     /// </summary>
     /// <remarks>
-    /// Unchanged, and deliberately so. A catalogue row, every published count and the analytics that
-    /// aggregate them are all keyed on this text; correcting the sentence that explains the rule is a
-    /// change of documentation, while changing the label would orphan the rows already written. The
-    /// label this rule used before the spelling in it was tidied is mapped onto this one in the
-    /// indexer's table of legacy aliases.
+    /// <para>
+    /// A catalogue row, every published count and the analytics that aggregate them are all keyed on this
+    /// text, so the label is not free to move casually: it moved once, and every spelling it has carried is
+    /// mapped onto this one in the alias tables the indexer and the API read, so a row written under an
+    /// older label still rolls up here instead of becoming an unattributable mark.
+    /// </para>
+    /// <para>
+    /// The word after the token is the finding, and it states the strength of the signal honestly. A match
+    /// says the mark is <em>mentioned</em> somewhere in the asset -- a script, a line of metadata, a credit
+    /// -- and it stops short of claiming the asset came out of that creator's own catalogue. The token is a
+    /// piece of text, and text can be quoted by someone who is not its author.
+    /// </para>
     /// </remarks>
-    public string Tag => "AMX1390(RARE INCOMING)";
+    public string Tag => "AMX1390(Mentioned)";
 
     /// <summary>
     /// Gets the score this rule contributes when it matches.
@@ -73,12 +80,12 @@ internal sealed class Amx1390Rule : IDetectionRule
     /// <summary>
     /// Gets the operator-facing explanation of why the rule exists.
     /// </summary>
-    public string Purpose => "Marks assets bearing the signature of AMX1390, a creator whose catalogue has almost entirely been lost. A match is a survivor of it, worth keeping, and not a sign of stolen or protected content.";
+    public string Purpose => "Marks assets that mention AMX1390, a creator whose catalogue has almost entirely been lost. A match is a pointer to that material, worth keeping, and not a sign of stolen or protected content.";
 
     /// <summary>
     /// Gets the technical description of the signature.
     /// </summary>
-    public string Description => "Matches the literal token amx1390 as a whole word.";
+    public string Description => "Matches the literal token amx1390 as a whole word. One occurrence is enough: the token is the mention.";
 
     /// <summary>
     /// Tests a payload against this rule's signature.

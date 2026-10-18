@@ -115,10 +115,10 @@
 
 [scanner]
 name         = rms-scanner
-description  = RMS catalogue scanner (sole writer of the JSON catalogue)
+description  = RMS catalogue scanner (sole writer of the catalogue)
 working_dir  = %ROOT%/artifacts/scanner
 windows.executable = %ROOT%/artifacts/scanner/RobloxModelScanner.exe
-environment  = CATALOGUE_PATH=%ROOT%/artifacts/data/models.json; MODEL_DIRECTORY=%ROOT%/artifacts/data/models; CONTROL_PATH=%ROOT%/artifacts/data/control.json
+environment  = CATALOGUE_PATH=%ROOT%/artifacts/data/catalogue.db; MODEL_DIRECTORY=%ROOT%/artifacts/data/models; CONTROL_PATH=%ROOT%/artifacts/data/control.json
 platforms    = windows
 restart      = always
 
@@ -136,7 +136,7 @@ description  = RMS catalogue indexer (sole writer of the SQLite index)
 working_dir  = %ROOT%/artifacts/indexer
 windows.executable = %ROOT%/artifacts/indexer/Scanner.Indexer.exe
 executable   = %ROOT%/artifacts/indexer/Scanner.Indexer
-environment  = SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; SCANNER_MODELS_PATH=%ROOT%/artifacts/data/models.json; SCANNER_INDEXER_TOKEN_FILE=%ROOT%/artifacts/credentials/indexer.token
+environment  = SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; SCANNER_CATALOGUE_PATH=%ROOT%/artifacts/data/catalogue.db; SCANNER_INDEXER_TOKEN_FILE=%ROOT%/artifacts/credentials/indexer.token
 restart      = always
 
 # -----------------------------------------------------------------------------

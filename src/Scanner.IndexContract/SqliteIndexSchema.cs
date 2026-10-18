@@ -33,9 +33,13 @@ public static class SqliteIndexSchema
     /// <value>
     /// Bump this whenever a table or a bookkeeping key changes shape. Consumers compare it against the
     /// value they find in the database and refuse to read an index they do not understand, which turns a
-    /// silent misread into an explicit, reportable mismatch.
+    /// silent misread into an explicit, reportable mismatch. Version two added the catalogue's found order
+    /// to <c>Models</c>, and replaced the source fingerprint -- a document's length and last-write time --
+    /// with the catalogue's revision number. The second change is the one that mattered: the catalogue is
+    /// a database now, it is appended to rather than rewritten, and a file's length and timestamp no
+    /// longer describe a revision of it that a reader can trust.
     /// </value>
-    public const int Version = 1;
+    public const int Version = 2;
 
     /// <summary>
     /// The bookkeeping key holding the arity of the schema on disk.
@@ -43,14 +47,15 @@ public static class SqliteIndexSchema
     public const string MetaSchemaVersion = "index.schemaVersion";
 
     /// <summary>
-    /// The bookkeeping key holding the length of the catalogue revision that was indexed.
+    /// The bookkeeping key holding the catalogue revision that was indexed.
     /// </summary>
-    public const string MetaSourceLength = "source.length";
-
-    /// <summary>
-    /// The bookkeeping key holding the last-write ticks of the catalogue revision that was indexed.
-    /// </summary>
-    public const string MetaSourceWriteTicks = "source.writeTicks";
+    /// <remarks>
+    /// One number rather than a document's length and last-write time. The catalogue is a database now, and
+    /// the scanner bumps this revision inside the same transaction that changes a row, so a reader can
+    /// never observe a revision its rows have not reached. A timestamp asks the reader to trust that two
+    /// writes a clock could not separate were nevertheless different, which is a thing clocks are bad at.
+    /// </remarks>
+    public const string MetaSourceRevision = "source.revision";
 
     /// <summary>
     /// The bookkeeping key holding the instant the last migration committed.
@@ -83,6 +88,7 @@ public static class SqliteIndexSchema
         CREATE TABLE IF NOT EXISTS Models
         (
             ModelId     INTEGER NOT NULL PRIMARY KEY,
+            Sequence    INTEGER NOT NULL DEFAULT 0,
             Date        TEXT    NOT NULL DEFAULT '',
             Name        TEXT    NOT NULL DEFAULT '',
             Description TEXT    NOT NULL DEFAULT '',
@@ -95,6 +101,8 @@ public static class SqliteIndexSchema
             Thumbnail   TEXT    NULL
         );
 
+        /* Serves the catalogue's default order -- most recently found first -- without a sort. */
+        CREATE INDEX IF NOT EXISTS IX_Models_Sequence   ON Models (Sequence DESC);
         CREATE INDEX IF NOT EXISTS IX_Models_Date       ON Models (Date);
         CREATE INDEX IF NOT EXISTS IX_Models_HasScripts ON Models (HasScripts);
         CREATE INDEX IF NOT EXISTS IX_Models_Score      ON Models (Score);
@@ -159,6 +167,35 @@ public static class SqliteIndexSchema
 
         /* Serves the leaderboard in descending order straight from the index, without a sort. */
         CREATE INDEX IF NOT EXISTS IX_CreatorStatistics_Models ON CreatorStatistics (Models DESC);
+        """;
+
+    /// <summary>
+    /// The statements that remove the index's tables, so that a schema of another arity can be rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Applied when the version recorded in an existing index is not the one this assembly describes, and
+    /// before the schema is created again. It is not a migration: the index is derived data, it can always
+    /// be rebuilt from the catalogue, and a writer that has just been upgraded has no way to know what the
+    /// previous arity meant. Dropping is the honest response to "I do not understand this file", and it is
+    /// also the only one that works for a column that was added rather than renamed -- <c>IF NOT EXISTS</c>
+    /// leaves an old table exactly as it was, so creating the current schema over it produces a database
+    /// that then fails on the first statement that names the new column.
+    /// </para>
+    /// <para>
+    /// The reader is the process that must not do this, which is why the API refuses an index whose version
+    /// it does not recognise rather than repairing it. Dropping happens here, where the file has one writer.
+    /// </para>
+    /// </remarks>
+    public const string DropSql = """
+        DROP TABLE IF EXISTS Models;
+        DROP TABLE IF EXISTS ModelTags;
+        DROP TABLE IF EXISTS CatalogueTotals;
+        DROP TABLE IF EXISTS TagStatistics;
+        DROP TABLE IF EXISTS ScoreStatistics;
+        DROP TABLE IF EXISTS PeriodStatistics;
+        DROP TABLE IF EXISTS CreatorStatistics;
+        DROP TABLE IF EXISTS Meta;
         """;
 
     /// <summary>

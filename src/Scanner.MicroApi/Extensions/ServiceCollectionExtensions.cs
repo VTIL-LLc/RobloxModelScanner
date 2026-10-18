@@ -47,9 +47,9 @@ public static class ServiceCollectionExtensions
     private const string FilesDirectoryName = "Files";
 
     /// <summary>
-    /// The file name of the scanner's JSON catalogue.
+    /// The file name of the scanner's catalogue database.
     /// </summary>
-    private const string CatalogueFileName = "models.json";
+    private const string CatalogueFileName = "catalogue.db";
 
     /// <summary>
     /// The file name of the SQLite read model.
@@ -106,7 +106,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// The environment variable that overrides the catalogue location.
     /// </summary>
-    private const string ModelsPathEnvironmentVariable = "SCANNER_MODELS_PATH";
+    private const string CataloguePathEnvironmentVariable = "SCANNER_CATALOGUE_PATH";
 
     /// <summary>
     /// The environment variable that overrides the index database location.
@@ -219,7 +219,7 @@ public static class ServiceCollectionExtensions
                 // carries an empty placeholder must not shadow the environment.
                 options.ApiKey = ResolveApiKey(options.ApiKey, configuration);
                 options.RobloxCookie = ResolveRobloxCookie(options.RobloxCookie, configuration);
-                options.ModelsPath = Coalesce(options.ModelsPath, configuration[ModelsPathEnvironmentVariable]);
+                options.CataloguePath = Coalesce(options.CataloguePath, configuration[CataloguePathEnvironmentVariable]);
                 options.IndexPath = Coalesce(options.IndexPath, configuration[IndexPathEnvironmentVariable]);
                 options.TrustedProxies = Coalesce(options.TrustedProxies, configuration[TrustedProxiesEnvironmentVariable]);
                 options.StatusWebhook = Coalesce(options.StatusWebhook, configuration[StatusWebhookEnvironmentVariable]);
@@ -444,20 +444,20 @@ public static class ServiceCollectionExtensions
     /// <returns>The resolved catalogue, index and control paths.</returns>
     /// <remarks>
     /// Resolving once, at start-up, is what removes the class of bug where the API reads a different
-    /// <c>models.json</c> depending on the working directory the host was started from.
+    /// catalogue depending on the working directory the host was started from.
     /// </remarks>
     private static ScannerPaths ResolvePaths(ScannerOptions options)
     {
         string filesDirectory = Path.Combine(AppContext.BaseDirectory, FilesDirectoryName);
 
-        string modelsPath = ResolvePath(options.ModelsPath, Path.Combine(filesDirectory, CatalogueFileName));
+        string cataloguePath = ResolvePath(options.CataloguePath, Path.Combine(filesDirectory, CatalogueFileName));
         string indexPath = ResolvePath(options.IndexPath, Path.Combine(filesDirectory, IndexFileName));
 
         // The control file always sits beside the catalogue: that is the directory the scanner polls, and
         // deriving it means a deployment cannot point the two at different scanners by accident.
-        string controlPath = Path.Combine(Path.GetDirectoryName(modelsPath) ?? filesDirectory, ControlFileName);
+        string controlPath = Path.Combine(Path.GetDirectoryName(cataloguePath) ?? filesDirectory, ControlFileName);
 
-        return new ScannerPaths(modelsPath, indexPath, controlPath);
+        return new ScannerPaths(cataloguePath, indexPath, controlPath);
     }
 
     /// <summary>

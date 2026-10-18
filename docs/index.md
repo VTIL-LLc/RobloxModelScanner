@@ -38,7 +38,7 @@ copy-pasted into a machine nobody understands.
 
 | Part | What it is |
 | --- | --- |
-| The scanner | A Windows desktop program that sweeps the identifier space and writes `models.json`. |
+| The scanner | A Windows desktop program that sweeps the identifier space and writes `catalogue.db`. |
 | The indexer | A service that turns the catalogue into a SQLite index with its analytics pre-aggregated. |
 | The API | A read-only service over that index. |
 | The sites | Four Web Forms applications: the public catalogue, and three operator consoles. |

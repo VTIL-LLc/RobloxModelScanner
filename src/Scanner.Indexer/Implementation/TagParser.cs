@@ -46,11 +46,13 @@ internal static class TagParser
         // that describes what the rule means rather than which usernames happened to trigger it.
         ["Player_57 or NopeUsername(Verified)"] = "Good people(Verified)",
 
-        // The AMX1390 mark was written with a space before its parenthesis until the spelling was tidied.
-        // A row is keyed on the label it was written with, and recovery searches the stored text for the
-        // label the rule carries now, so without this entry a row from before the tidying keeps its text and
+        // The AMX1390 mark has been written two ways that the rule no longer uses: with a space before its
+        // parenthesis, and with a word that called a match a find rather than a mention. A row is keyed on
+        // the label it was written with, and recovery searches the stored text for the label the rule
+        // carries now, so without these entries a row written under either older spelling keeps its text and
         // loses its mark: the token is there in the row, and nothing ever matches it.
-        ["AMX1390 (RARE INCOMING)"] = "AMX1390(RARE INCOMING)"
+        ["AMX1390 (RARE INCOMING)"] = "AMX1390(Mentioned)",
+        ["AMX1390(RARE INCOMING)"] = "AMX1390(Mentioned)"
     };
 
     /// <summary>

@@ -492,7 +492,7 @@ namespace RMS.Devops.Site.Infrastructure
             builder.Append("<div class=\"row\"><div class=\"col-sm-12\">");
             builder.Append(Html.Field("Index", Html.Value(catalog.Path)));
             builder.Append(Html.Field("Built", Html.Timestamp(catalog.IndexedUtc)));
-            builder.Append(Html.Field("Source size", Html.Encode(Html.Bytes(catalog.SourceLength))));
+            builder.Append(Html.Field("Catalogue revision", Html.Encode(catalog.SourceRevision.ToString(CultureInfo.InvariantCulture))));
             builder.Append(Html.Field("Schema", Html.Encode(catalog.SchemaVersion.ToString(CultureInfo.InvariantCulture))));
             builder.Append("</div></div>");
 

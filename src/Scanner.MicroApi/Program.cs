@@ -40,8 +40,8 @@
  *   control file that the scanner process polls.
  *
  * OPERATING NOTES
- *   - Point Scanner:ModelsPath at the catalogue and Scanner:IndexPath at the index
- *     database if they do not sit in Files/.
+ *   - Point Scanner:CataloguePath at the catalogue and Scanner:IndexPath at the
+ *     index database if they do not sit in Files/.
  *   - Set Scanner:ApiKey or SCANNER_API_KEY to a freshly generated GUID and
  *     configure the same value in the website's server-side settings.
  *   - Set SCANNER_TRUSTED_PROXIES to the edge's ranges, or to "none" when nothing
@@ -319,7 +319,7 @@ api.MapGet("/scanner/status", static async (
         {
             paused = state.Paused,
             stopRequested = state.StopRequested,
-            modelsFile = reader.Paths.ModelsPath,
+            catalogueFile = reader.Paths.CataloguePath,
             catalogueExists = reader.CatalogueExists,
             indexFile = reader.Paths.IndexPath,
             indexExists = reader.IndexExists
@@ -435,7 +435,7 @@ static async Task<IResult> SetControlAsync(
  * cosmetic parameter.
  */
 static ModelSortField ParseSortField(string? sortBy) =>
-    Enum.TryParse(sortBy, ignoreCase: true, out ModelSortField field) ? field : ModelSortField.Model;
+    Enum.TryParse(sortBy, ignoreCase: true, out ModelSortField field) ? field : ModelSortField.Found;
 
 /*
  * Translate the `sortDirection` parameter. An absent direction keeps the

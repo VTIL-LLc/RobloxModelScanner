@@ -38,7 +38,7 @@
  *
  * OPERATING NOTES
  *   - Set SCANNER_INDEXER_TOKEN to a random value of at least 32 characters.
- *   - Point SCANNER_MODELS_PATH at the catalogue if it does not sit in Files/.
+ *   - Point SCANNER_CATALOGUE_PATH at the catalogue if it does not sit in Files/.
  *   - Point SCANNER_INDEX_PATH at the index if it should live elsewhere; the
  *     publishing API must be given the same path.
  *   - Set SCANNER_INDEXER_NETWORKS when the control plane must be reachable from
@@ -129,10 +129,10 @@ internalApi.MapGet("/health", static (IIndexWriter writer) =>
 
 /*
  * The status surface the publishing API relays and an operator watches: whether
- * the catalogue exists, how big it is, what the index reflects, whether the two
- * disagree, and how the last migration attempt ended. Distinguishing "nothing
- * changed" from "every attempt is failing" is the whole point of reporting the
- * failure text alongside the staleness flag.
+ * the catalogue exists, which revision it is at, what the index reflects, whether
+ * the two disagree, and how the last migration attempt ended. Distinguishing
+ * "nothing changed" from "every attempt is failing" is the whole point of
+ * reporting the failure text alongside the staleness flag.
  */
 internalApi.MapGet("/status", static (IIndexStatusProvider status) => Results.Ok(status.GetStatus()))
     .WithName("GetIndexerStatus")
@@ -152,7 +152,7 @@ internalApi.MapPost("/rebuild", static async (IIndexWriter writer, CancellationT
         int statusCode = outcome switch
         {
             IndexBuildOutcome.Busy => StatusCodes.Status409Conflict,
-            IndexBuildOutcome.CatalogueInvalid or IndexBuildOutcome.StorageFailed => StatusCodes.Status500InternalServerError,
+            IndexBuildOutcome.StorageFailed => StatusCodes.Status500InternalServerError,
             _ => StatusCodes.Status200OK
         };
 

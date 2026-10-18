@@ -13,7 +13,7 @@ namespace Scanner.MicroApi.Options;
 /// </para>
 /// <para>
 /// Paths default to the deployed application directory so a fresh installation works
-/// without configuration, while an explicit <c>ModelsPath</c> lets the API read the
+/// without configuration, while an explicit <c>CataloguePath</c> lets the API report on the
 /// catalogue produced by the independently deployed scanner process.
 /// </para>
 /// <para>
@@ -36,10 +36,14 @@ public sealed class ScannerOptions
     public string? ApiKey { get; set; }
 
     /// <summary>
-    /// Gets or sets the absolute path to the scanner's <c>models.json</c> catalogue.
+    /// Gets or sets the absolute path to the scanner's catalogue database.
     /// </summary>
-    /// <value>When empty, <c>Files/models.json</c> beside the application is used.</value>
-    public string? ModelsPath { get; set; }
+    /// <value>
+    /// When empty, <c>Files/catalogue.db</c> beside the application is used. The API never reads the
+    /// catalogue's rows -- the index is its source -- and names the path only so that it can report
+    /// whether the file the scanner owns is there at all.
+    /// </value>
+    public string? CataloguePath { get; set; }
 
     /// <summary>
     /// Gets or sets the absolute path to the SQLite index database.

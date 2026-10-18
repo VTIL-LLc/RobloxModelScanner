@@ -35,5 +35,16 @@ public enum ModelSortField
     Tags = 7,
 
     /// <summary>Order by asset description.</summary>
-    Description = 8
+    Description = 8,
+
+    /// <summary>
+    /// Order by the order in which the catalogue found the row.
+    /// </summary>
+    /// <remarks>
+    /// This is the catalogue's own sequence, not a property of the asset. Descending on it is what
+    /// "recently found" means: the first result is the row the sweep discovered most recently, whereas the
+    /// highest asset identifier is the asset Roblox published most recently, which is a different question
+    /// and one that answers itself the same way only for a sweep that has never missed anything.
+    /// </remarks>
+    Found = 9
 }

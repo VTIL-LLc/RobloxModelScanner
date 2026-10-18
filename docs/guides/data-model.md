@@ -10,28 +10,13 @@ answerable; the analytics are the index made cheap.
 
 ## The catalogue
 
-`models.json` is a JSON array, one record per asset, indented, UTF-8 without a BOM. The property order is fixed
-because the scanner rewrites the file it read:
+`catalogue.db` is the scanner's own SQLite database. The scanner is its only writer, and the indexing service
+reads it without ever writing to it. One table holds the rows, one holds the bookkeeping:
 
-```json
-{
-  "Model": 17074984378,
-  "Date": "2024-04-09T04:18:35.02Z",
-  "Name": "Eclipse Masquerade",
-  "Description": "...",
-  "CreatorName": "Darkworldkris4900",
-  "CreatorId": 1234567890,
-  "HasScripts": true,
-  "Tags": "Obfuscation(Possible) | HttpService functions(Verified)",
-  "Score": 7,
-  "AssetUrl": "https://create.roblox.com/store/asset/17074984378",
-  "Thumbnail": null
-}
-```
-
-| Field | Notes |
+| Column | Notes |
 | --- | --- |
-| `Model` | The asset identifier. The record's identity. |
+| `Model` | The asset identifier. The row's identity. |
+| `Sequence` | The order the catalogue found the row in, assigned when it was first inserted and never reassigned — including by a repair that rewrites everything else about the row. |
 | `Date` | When the asset was created, as Roblox reports it. |
 | `Name`, `Description` | Empty when the toolbox cannot describe the asset. A sweep leaves them empty; a backfill fills them. |
 | `CreatorName`, `CreatorId` | Same. `CreatorId` is zero when unknown. |
@@ -39,11 +24,23 @@ because the scanner rewrites the file it read:
 | `Tags` | The canonical detection tags, `" | "` separated. |
 | `Score` | The sum of the matched rules' scores. |
 | `AssetUrl` | `https://create.roblox.com/store/asset/{id}`, derived, never stored from an upstream value. |
-| `Thumbnail` | A validated location, or an explicit `null`. Never a URL pointing outside Roblox's own hosts. |
+| `Thumbnail` | A validated location, or SQL `NULL`. Never a URL pointing outside Roblox's own hosts. |
 
-Most rows in a real catalogue have empty `Name`, `Description`, `CreatorName` and `CreatorId`, and a `null`
+`Meta` holds two values: `catalogue.revision`, a counter bumped inside the same transaction that writes the rows,
+and `catalogue.updatedUtc`, the instant it last changed. The revision is what the indexer watches — it is the one
+number that cannot describe a revision whose rows have not landed.
+
+The database is in write-ahead mode, so a reader sees a complete revision while the scanner is committing the next
+one. Writes are batched: a commit per discovered asset would put a disk flush on the path of every inspection, and
+the inspection is the part that costs real time. The rows are appended as they are found rather than the whole file
+being rewritten, which is the difference between this and the JSON array it replaced — an array has to be rewritten
+in full to save any part of it, so a forty-megabyte file was serialised on a timer and every repair rewrote it.
+
+Most rows in a real catalogue have empty `Name`, `Description`, `CreatorName` and `CreatorId`, and a `NULL`
 thumbnail — the sweeps that produced them ran when the toolbox would not describe those assets. The backfill pass
-exists to repair exactly those rows, one pass at a time.
+exists to repair exactly those rows, one pass at a time. A row with nothing descriptive in it at all is what the
+scanner looks for, and the definition of that lives in one place, on the record type both the pass and the
+catalogue use.
 
 **Legacy tags.** Rows written before the separator changed carry their tags space-joined. A parser cannot simply
 split those, because labels contain spaces. They are parsed by matching the known label set longest-first, with an
@@ -59,9 +56,10 @@ project and rebuilding both — there is no way for the writer and the reader to
 
 What it holds:
 
-- **`Meta`** — the schema version and the fingerprint of the catalogue the index was built from.
-- **`Models`** — one row per asset: the identifier, the metadata, the score, the revision date. `Models.Tags`
-  keeps the **raw** tag text as it was written, so a legacy row survives a round trip.
+- **`Meta`** — the schema version and the catalogue revision the index was built from.
+- **`Models`** — one row per asset: the identifier, its place in the catalogue's discovery order, the metadata, the
+  score, the revision date. `Models.Tags` keeps the **raw** tag text as it was written, so a legacy row survives a
+  round trip.
 - **`ModelTags`** — one row per detection: the asset, the canonical tag, its category, its severity and its
   score. This is what makes "which rules fire, and how often" a grouped query rather than a text scan.
 - **The derived statistics tables** — the analytics that a page would otherwise compute: totals, the per-rule
@@ -73,9 +71,10 @@ page runs on every visit.
 
 ### Rebuilds
 
-The indexer compares the catalogue's fingerprint with the one in `Meta` and rebuilds only when it differs. Running
-it on a schedule is therefore cheap, and running it twice in a row is a no-op. The API reports `isStale` when the
-catalogue has changed since the index was built, which is a warning that the indexer has not run — not a fault.
+The indexer compares the catalogue's revision with the one recorded in `Meta` and rebuilds only when it differs.
+Running it on a schedule is therefore cheap, and running it twice in a row is a no-op. The API reports `isStale`
+when the catalogue has changed since the index was built, which is a warning that the indexer has not run — not a
+fault.
 
 When the index cannot be read at all, the API answers `503` with one of `index_missing`, `index_incompatible` or
 `index_unreadable`, plus `availability` and a sentence. It never repairs the index and never answers `500` for a

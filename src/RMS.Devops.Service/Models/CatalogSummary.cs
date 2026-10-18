@@ -75,14 +75,14 @@ public sealed class CatalogSummary
     public DateTimeOffset? IndexedUtc { get; init; }
 
     /// <summary>
-    /// Gets the length of the catalogue revision the index was built from.
+    /// Gets the revision of the catalogue the index was built from.
     /// </summary>
     /// <remarks>
-    /// The length is what makes the staleness question answerable without reading the catalogue: a deployment
-    /// that reports a different length from the one recorded here has a catalogue that has changed since it was
+    /// The revision is what makes the staleness question answerable without reading the catalogue: a deployment
+    /// reporting a different revision from the one recorded here has a catalogue that has changed since it was
     /// indexed.
     /// </remarks>
-    public long SourceLength { get; init; }
+    public long SourceRevision { get; init; }
 
     /// <summary>
     /// Gets the most frequent detections, most frequent first.
