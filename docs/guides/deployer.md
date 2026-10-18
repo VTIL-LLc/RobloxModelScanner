@@ -229,17 +229,17 @@ A service is told in its own environment, and the manifest says so once:
 environment = SCANNER_API_KEY_FILE=%ROOT%/artifacts/credentials/api-key
 ```
 
-A web site under IIS is a process the deployer does not start, so it cannot be handed an environment.
-There the deployer writes the path into the site's published `Web.config`, into a setting the site
-already declares:
+A web site under IIS is a process the deployer does not start, so it cannot be handed an environment. There the
+deployer writes the path into the site's published `Web.config`, into a setting the site already declares:
 
 ```xml
 <add key="SiteServiceKeyFile" value="C:\...\artifacts\credentials\docs.token" />
 ```
 
 Only the path is written, never the value. A path inside the web root is not a disclosure, and the file it
-names lives outside every directory IIS serves. Under systemd and launchd the same site is handed the path
-in its unit's environment instead, because there the process is the deployer's to start.
+names lives outside every directory IIS serves. A site the deployer does start — an IIS Express instance, or
+`xsp4` under systemd and launchd — is handed the same path in its environment instead, because there the
+process is the deployer's to start and the plan already carries an `environment` line for it.
 
 A site whose key file is absent still starts and refuses its own service: the page reports that nothing is
 listening rather than showing data it could not fetch. That is the safe direction for the failure to

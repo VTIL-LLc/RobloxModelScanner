@@ -86,6 +86,12 @@ A service section that declares a website is one of two things:
   disables the idle timeout and periodic recycle, and sets `startMode` to `AlwaysRunning` — because a site that
   stops when nobody has looked at it for twenty minutes is a site whose first request after lunch is a cold start.
 
+This deployment uses the first form for all four Windows sites. Each one is an IIS Express instance named in
+`deploy/rmsdeploy.services` with its application-host configuration, started by the host like any other child.
+That is what gives a site a service lifetime without the machine-wide role: no application pool, no binding
+outside the plan's own configuration, and no content permissions to grant. The second form stays for a machine
+where IIS is already installed and an operator would rather the platform own the site.
+
 On POSIX a site is always a separate `xsp4` process, supervised like every other service. That is what gives a
 website the same run logs and the same restart behaviour as a daemon, instead of a second lifecycle with its own
 failure modes.

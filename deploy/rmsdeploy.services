@@ -236,25 +236,43 @@ restart      = always
 # -----------------------------------------------------------------------------
 # The Web Forms sites.
 #
-# On Windows each of these is an IIS site. The executable keys are empty on
-# purpose: there is no process to start, because IIS owns the lifetime, which is
-# why these entries are marked for Windows only. On Linux and macOS the site is a
-# directory that Mono's xsp host serves, so each one has an xsp entry instead,
-# started and supervised in the same way as any other service -- which is what
-# gives a web site the same run logs as a service.
+# On Windows each of these is served by IIS Express, started as a child of the
+# service host exactly like any other service. That is deliberate. A Web Forms
+# site is not a process, so it cannot be registered with the service control
+# manager on its own, and the alternative is the machine-wide IIS role, whose
+# application pools, site bindings and content permissions are three more things
+# that can drift from the plan. IIS Express is the same pipeline these sites were
+# written for, with the lifetime owned by the host that already owns every other
+# lifetime here.
+#
+# One instance per site, because IIS Express serves one site per process. What a
+# site is -- its name, its content root, its binding -- lives in the application
+# host configuration named below, which is local tooling rather than part of a
+# deployment, and is the file to edit when a site moves.
+#
+# The `port` key is kept because it is the number the reverse proxy and the
+# console shortcuts use. It must agree with the binding in that configuration;
+# nothing reads it to decide anything.
+#
+# On Linux and macOS the site is a directory that Mono's xsp host serves, so each
+# one has an xsp entry instead, started and supervised in the same way -- which
+# is what gives a web site the same run logs as a service.
 # -----------------------------------------------------------------------------
 
 [webforms-site]
 name         = rms-site
 description  = RMS analytics site
-website      = %ROOT%/artifacts/site
+working_dir  = %ROOT%/artifacts/local
+windows.executable = C:\Program Files\IIS Express\iisexpress.exe
+arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-site; -systray:false
 
 # 30449 and not the 8081 this used to be. The public name for this site is
-# routed to loopback 30449, so an IIS site bound anywhere else answers the proxy
+# routed to loopback 30449, so a site bound anywhere else answers the proxy
 # with a refused connection and the name reports a bad gateway.
 port         = 30449
 environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key
 platforms    = windows
+restart      = always
 
 [xsp-webforms]
 name         = rms-site-xsp
@@ -269,10 +287,13 @@ restart      = always
 [devops-site]
 name         = rms-devops-site
 description  = RMS DevOps site
-website      = %ROOT%/artifacts/devops-site
+working_dir  = %ROOT%/artifacts/local
+windows.executable = C:\Program Files\IIS Express\iisexpress.exe
+arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-devops-site; -systray:false
 port         = 8082
 environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token
 platforms    = windows
+restart      = always
 
 [xsp-devops-site]
 name         = rms-devops-site-xsp
@@ -287,10 +308,13 @@ restart      = always
 [configuration-site]
 name         = rms-configuration-site
 description  = RMS Configuration site
-website      = %ROOT%/artifacts/configuration-site
+working_dir  = %ROOT%/artifacts/local
+windows.executable = C:\Program Files\IIS Express\iisexpress.exe
+arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-configuration-site; -systray:false
 port         = 8083
 environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token
 platforms    = windows
+restart      = always
 
 [xsp-configuration-site]
 name         = rms-configuration-site-xsp
@@ -305,10 +329,13 @@ restart      = always
 [docs-site]
 name         = rms-docs-site
 description  = RMS documentation site
-website      = %ROOT%/artifacts/docs-site
+working_dir  = %ROOT%/artifacts/local
+windows.executable = C:\Program Files\IIS Express\iisexpress.exe
+arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-docs-site; -systray:false
 port         = 8084
 environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token
 platforms    = windows
+restart      = always
 
 [xsp-docs-site]
 name         = rms-docs-site-xsp

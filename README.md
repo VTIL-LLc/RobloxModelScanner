@@ -107,7 +107,7 @@ service definition looks like on each platform. Adding a project to the build ne
 manifest section is enough. Adding a *publish* target does need one, because the published output layout
 is held in code so that the service manifest and the publish list can be reviewed together.
 
-Platforms: Windows uses IIS with MSVC's MSBuild and the SCM; Linux uses Mono's MSBuild with
+Platforms: Windows uses IIS Express with MSVC's MSBuild and the SCM; Linux uses Mono's MSBuild with
 `xsp4` under systemd; macOS uses Mono from Homebrew with `xsp4` under launchd.
 
 ## Scanner configuration
@@ -224,9 +224,10 @@ and the one value in it that matters is written by the deployer at install time.
 Built and verified live: the scanner's sweep and repair passes, `Scanner.Indexer`, `Scanner.MicroApi`,
 `RMS.ServiceHost`, `RMS.ServiceInstaller`, `RMS.Devops.Service`/`.Site`,
 `RMS.Configuration.Service`/`.Site`, `RMS.Docs.Service`/`.Site`, `Scanner.WebForms`, the deployer's build,
-publish, credentials and site-key passes, and `configure.bat`.
+publish, credentials and site-key passes, `configure.bat`, and all ten services running under the SCM with the
+four sites served by IIS Express as children of the host.
 
-Not verifiable on the machine this was written on: the installer's IIS half, because IIS is not installed;
-the POSIX branches of the deployer, the service installer and the site publish, because there is no WSL, no
-Docker and no elevation here; and the API's download route, which answers 502 without a `ROBLOX_COOKIE`
-configured for the API.
+Not verifiable on the machine this was written on: the installer's IIS half, because it needs the machine-wide
+role and the role's payload cannot land while Windows has a servicing reboot pending; the POSIX branches of the
+deployer, the service installer and the site publish, because there is no WSL, no Docker and no elevation here;
+and the API's download route, which answers 502 without a `ROBLOX_COOKIE` configured for the API.
