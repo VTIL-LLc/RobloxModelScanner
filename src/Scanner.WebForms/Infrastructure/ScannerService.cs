@@ -97,24 +97,33 @@ namespace Scanner.WebForms.Infrastructure
         }
 
         /// <summary>
-        /// Resolves an asset's signed download address.
+        /// Fetches an asset's content, with the name it is to be saved under.
         /// </summary>
         /// <param name="client">The client.</param>
         /// <param name="model">The asset identifier.</param>
-        /// <returns>The result, carrying the address rather than following it.</returns>
+        /// <returns>The result, carrying the contents, the name and the type.</returns>
         /// <remarks>
-        /// The API redirects a caller to the signed address by default, which is what a browser link wants and
-        /// is exactly what this site must not do: following that redirect on this side would stream the asset
-        /// through the site and would hand the framework a cross-origin response to render. The address is
-        /// therefore asked for as a document and handed to the browser as a link of its own.
+        /// <para>
+        /// The API answers this route three ways and the site asks for the third. A redirect is what a
+        /// browser link wants, and following it on this side would hand the framework a cross-origin response
+        /// to render. The signed location as a document is what the site used to ask for and then pass on,
+        /// and a browser following that saved the file under the last segment of the address, which is a hash
+        /// Roblox generated. The bytes come back through here instead, which is what allows a file to be
+        /// named after the asset rather than after its address: only the API knows both the identifier and
+        /// the kind of content, so the name arrives with the bytes instead of being guessed from a link.
+        /// </para>
+        /// <para>
+        /// The name and the media type are read here through the same checks every other answer goes
+        /// through, so what the handler writes has already been reduced to something a response can carry.
+        /// </para>
         /// </remarks>
-        public static ServiceResult<DownloadAddress> Download(ServiceClient client, long model)
+        public static ServiceResult<ServiceFile> Download(ServiceClient client, long model)
         {
-            return client.GetJson<DownloadAddress>(
+            return client.GetFile(
                 ModelsRoute + "/"
                 + model.ToString(CultureInfo.InvariantCulture)
                 + "/download",
-                new KeyValuePair<string, string>("redirect", "false"));
+                new KeyValuePair<string, string>("stream", "true"));
         }
     }
 }

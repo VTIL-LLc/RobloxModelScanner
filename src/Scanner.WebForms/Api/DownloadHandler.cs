@@ -10,28 +10,28 @@ using Scanner.WebForms.Infrastructure;
 namespace Scanner.WebForms.Api
 {
     /// <summary>
-    /// Resolves an asset's download address and sends the browser to it.
+    /// Fetches an asset's content and sends it to the browser under the asset's own name.
     /// </summary>
     /// <remarks>
     /// <para>
     /// A Roblox content address is signed and time-limited and cannot be fetched without authority, so it cannot
     /// be put into a page when the page is rendered: by the time anybody followed such a link it would have
     /// expired, and the address would have been written into the page's own source where it could be copied out.
-    /// It is therefore resolved when the link is followed, which is what makes it current, and it is never
-    /// rendered anywhere.
+    /// It is resolved when the link is followed, which is what makes it current, and it is never rendered
+    /// anywhere or kept.
     /// </para>
     /// <para>
-    /// The address is resolved through the API rather than directly, because the API is what holds the scanner's
-    /// key. The API would redirect this handler to the signed address, which is exactly what must not happen: a
-    /// redirect followed on this side would stream the asset through the site and would hand the framework a
-    /// cross-origin response to render. The address is asked for as a document instead, checked, and only then
-    /// used as a destination.
+    /// The bytes come back through the API rather than the reader being sent to the address, and the reason is
+    /// the file's name. A browser following a content address saves the file under the last segment of that
+    /// address, which is a hash Roblox generated: the right bytes under a name that identifies nothing, with the
+    /// asset's identifier -- the one string that identifies this file everywhere else -- appearing nowhere. The
+    /// API is the only place that knows both the identifier and the kind of content Roblox said it was, so the
+    /// name is decided there and passed on here unchanged.
     /// </para>
     /// <para>
-    /// That check is the reason this handler exists rather than a plain link. A destination taken from an upstream
-    /// answer and handed to a browser is an open redirect, and the answer here comes from a service that this
-    /// site is only mostly sure of. The destination must be HTTPS and must be a Roblox host, and anything else
-    /// becomes a sentence on the model's page.
+    /// Reading through the API is also what keeps this handler from being a way to reach Roblox with the site's
+    /// authority. The address is one the API resolved and validated against Roblox's own content hosts, and this
+    /// side never composes an address, never appends to one, and never follows one a caller supplied.
     /// </para>
     /// </remarks>
     public class DownloadHandler : ServiceProxyHandler
@@ -42,9 +42,7 @@ namespace Scanner.WebForms.Api
         /// <remarks>
         /// It must not. The catalogue and a model's page are readable by anybody, and this is the link on them:
         /// a visitor who could read that a model exists but not fetch it would have been shown the site's
-        /// purpose and refused it. What the handler reaches with the site's key is Roblox's delivery service, and
-        /// the key is used on this side -- the browser is sent to a Roblox address that was checked to be one, a
-        /// check that does not depend on who asked.
+        /// purpose and refused it.
         /// </remarks>
         protected override bool RequiresSignIn
         {
@@ -72,23 +70,38 @@ namespace Scanner.WebForms.Api
                 return;
             }
 
-            ServiceResult<DownloadAddress> resolved = ScannerService.Download(Client, identifier);
+            ServiceResult<ServiceFile> fetched = ScannerService.Download(Client, identifier);
 
-            if (!resolved.IsSuccess)
+            if (!fetched.IsSuccess)
             {
-                Back(context, identifier, CodeFor(resolved.StatusCode, resolved.Reason));
+                Back(context, identifier, CodeFor(fetched.StatusCode, fetched.Reason));
                 return;
             }
 
-            string location = resolved.Value == null ? null : resolved.Value.Location;
+            Send(context, fetched.Value);
+        }
 
-            if (!ScannerViews.IsRobloxAddress(location))
-            {
-                Back(context, identifier, "unusable");
-                return;
-            }
+        /// <summary>
+        /// Writes a fetched asset to the response.
+        /// </summary>
+        /// <param name="context">The request and its response.</param>
+        /// <param name="file">The contents, the name to send them under and the type to send them as.</param>
+        /// <remarks>
+        /// The disposition is an attachment rather than inline: this address is a download link, and a model sent
+        /// inline is a model a browser tries to display. The length is stated because the whole file is already in
+        /// memory, and a browser told how large it is can report progress instead of waiting on a response that
+        /// looks like it may never end.
+        /// </remarks>
+        private static void Send(HttpContext context, ServiceFile file)
+        {
+            context.Response.ContentType = file.ContentType;
+            context.Response.AddHeader(
+                "Content-Disposition",
+                "attachment; filename=\"" + file.FileName + "\"");
+            context.Response.AddHeader("Content-Length", file.Content.Length.ToString(CultureInfo.InvariantCulture));
 
-            context.Response.Redirect(location.Trim(), endResponse: false);
+            context.Response.OutputStream.Write(file.Content, 0, file.Content.Length);
+            context.Response.Flush();
         }
 
         /// <summary>

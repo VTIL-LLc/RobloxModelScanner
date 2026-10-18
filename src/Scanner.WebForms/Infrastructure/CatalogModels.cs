@@ -354,25 +354,4 @@ namespace Scanner.WebForms.Infrastructure
         /// </summary>
         public int Detections { get; set; }
     }
-
-    /// <summary>
-    /// The API's answer to a request for an asset's signed download location.
-    /// </summary>
-    /// <remarks>
-    /// The location is a time-limited signed address that Roblox issues and that nobody may cache, so it is
-    /// resolved, handed to the browser, and forgotten. The site never stores one and never renders one into a
-    /// page.
-    /// </remarks>
-    public sealed class DownloadAddress
-    {
-        /// <summary>
-        /// Gets or sets the asset identifier the address was issued for.
-        /// </summary>
-        public long Model { get; set; }
-
-        /// <summary>
-        /// Gets or sets the signed content address.
-        /// </summary>
-        public string Location { get; set; }
-    }
 }

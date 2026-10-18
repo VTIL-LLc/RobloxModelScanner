@@ -134,6 +134,7 @@ ending. The only value the scanner writes is the sweep cursor.
 | `CONTROL_PATH` | `<app>/Files/control.json` | Where the API leaves pause/stop intent. |
 | `IGNORED_CREATORS` | `5845922908,1395153130` | Creators whose assets are not downloaded. |
 | `VERBOSE` | `false` | Per-asset logging. |
+| `ROBLOX_COOKIE_FILE` | — | Where the session cookie is published for other services. The scanner writes the value it read from `ROBLOX_COOKIE` here at start-up and the API reads the same file, so the two cannot drift. Unset means nothing is published. |
 | `ROBLOX_COOKIE` | — | The `.ROBLOSECURITY` value. Asset delivery refuses unauthenticated requests, so without it nothing downloads. |
 | `MAIN_WEBHOOK` | — | Where script-carrying models are reported. |
 | `AUTODOWNLOAD_WEBHOOK` | — | Where kept payloads are reported. |
@@ -164,7 +165,7 @@ GET  /api/health                  liveness
 GET  /api/rules                   the rule reference: score, category, severity, purpose
 GET  /api/analytics/summary       totals, per-rule breakdown, categories, score histogram, timeline, top creators
 GET  /api/models                  catalogue search: q or search, hasScripts, hasObfuscation, ruleTag, page, pageSize, sortBy, sortDirection
-GET  /api/models/{id}/download    resolve a signed location; redirects by default, redirect=false returns JSON
+GET  /api/models/{id}/download    resolve a signed location; redirects by default, redirect=false returns JSON, stream=true returns the bytes named after the asset
 GET  /api/scanner/status          persisted pause/stop intent, and whether the catalogue and index exist
 POST /api/scanner/pause           request that the scanner wait before its next block
 POST /api/scanner/resume          clear a pending pause
@@ -176,6 +177,12 @@ being usable as a proxy for arbitrary Roblox identifiers. An asset that is not i
 `not_indexed`; a resolver failure answers 502 `unavailable`. An index that cannot be read answers 503 with
 `index_missing`, `index_incompatible` or `index_unreadable`, never a 500 and never an attempt to repair it.
 
+With `stream=true` the asset's bytes are sent back rather than its address, under a `Content-Disposition`
+name built from the asset identifier and the kind of content Roblox said it was. That form exists because a
+browser following a signed address saves the file under the last segment of that address, which is a hash
+Roblox generated: the right bytes under a name that identifies nothing. The site's download link uses it, so
+a model saves as `8515755685.rbxm` and not as `385fb7a1a4594fe610e6ac1fb4eb0fbf`.
+
 The control endpoints persist intent; the scanner performs the action, so a pause or stop takes effect when
 the scanner next reaches a poll.
 
@@ -184,7 +191,7 @@ the scanner next reaches a poll.
 Nothing in this repository is meant to hold a credential. Secrets arrive through the environment:
 
 - `SCANNER_API_KEY` — the API key (a GUID). Also `Scanner:ApiKey` in the API's `appsettings.json`.
-- `ROBLOX_COOKIE` — the Roblox session cookie, for the API and the scanner.
+- `ROBLOX_COOKIE` — the Roblox session cookie, for the API and the scanner. The scanner writes its value to `ROBLOX_COOKIE_FILE` at start-up, and the API reads that file, so a session replaced in one place does not leave the other holding a dead copy.
 - `SCANNER_TRUSTED_PROXIES` — the proxies whose forwarded headers are believed. Defaults to Cloudflare's
   published ranges; the single word `none` trusts nobody.
 - `SITE_SERVICE_KEY_FILE` / `SITE_SERVICE_KEY` — the key a site presents to its service. The file wins.
@@ -224,10 +231,12 @@ and the one value in it that matters is written by the deployer at install time.
 Built and verified live: the scanner's sweep and repair passes, `Scanner.Indexer`, `Scanner.MicroApi`,
 `RMS.ServiceHost`, `RMS.ServiceInstaller`, `RMS.Devops.Service`/`.Site`,
 `RMS.Configuration.Service`/`.Site`, `RMS.Docs.Service`/`.Site`, `Scanner.WebForms`, the deployer's build,
-publish, credentials and site-key passes, `configure.bat`, and all ten services running under the SCM with the
-four sites served by IIS Express as children of the host.
+publish, credentials and site-key passes, `configure.bat`, all ten services running under the SCM with the
+four sites served by IIS Express as children of the host, and the download path end to end — the scanner
+publishing its session to the credential file, the API resolving the signed address with it and streaming the
+bytes, and the site serving a model byte for byte under `<asset identifier>.rbxm`.
 
 Not verifiable on the machine this was written on: the installer's IIS half, because it needs the machine-wide
-role and the role's payload cannot land while Windows has a servicing reboot pending; the POSIX branches of the
-deployer, the service installer and the site publish, because there is no WSL, no Docker and no elevation here;
-and the API's download route, which answers 502 without a `ROBLOX_COOKIE` configured for the API.
+role and the role's payload cannot land while Windows has a servicing reboot pending; and the POSIX branches of
+the deployer, the service installer and the site publish, because there is no WSL, no Docker and no elevation
+here.

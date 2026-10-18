@@ -102,7 +102,7 @@ class in `Content/site.css` rather than a computed inline style.
 Secrets arrive through the environment and never through a file in this repository:
 
 - `SCANNER_API_KEY` — the API key, a GUID.
-- `ROBLOX_COOKIE` — the Roblox session cookie, for asset delivery.
+- `ROBLOX_COOKIE` — the Roblox session cookie, for asset delivery. The scanner publishes its value to `ROBLOX_COOKIE_FILE` at start-up and the API reads that file, so the credential an operator pastes once is the credential every process uses.
 - `SCANNER_INDEXER_TOKEN_FILE`, `RMS_DEVOPS_TOKEN_FILE`, `RMS_CONFIGURATION_TOKEN_FILE`, `RMS_DOCS_TOKEN_FILE` —
   one file per service, generated at deploy time.
 - `SITE_SERVICE_KEY_FILE` or `SITE_SERVICE_KEY` — the key a site presents. The file wins; a file that cannot be

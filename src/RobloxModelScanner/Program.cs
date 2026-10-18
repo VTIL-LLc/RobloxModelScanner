@@ -62,6 +62,7 @@ internal static class Program
 
         ILogger logger = factory.CreateLogger("scanner");
         Describe(logger, settings, environment);
+        PublishSessionCookie(settings, logger);
 
         using CancellationTokenSource stop = new();
         using CancellationTokenSource abandon = new();
@@ -308,6 +309,70 @@ internal static class Program
         logger.LogDebug("The session cookie was attached to the Roblox client.");
 
         return client;
+    }
+
+    /// <summary>
+    /// Publishes the session cookie to the file the rest of the stack reads it from.
+    /// </summary>
+    /// <param name="settings">The settings, which hold the cookie and the path to publish it to.</param>
+    /// <param name="logger">The logger that records what happened.</param>
+    /// <remarks>
+    /// <para>
+    /// The scanner is the only program in this stack that holds a Roblox session. It is the one that reads
+    /// the environment file an operator pastes a cookie into, and it is the one whose traffic Roblox sees,
+    /// so its session is the deployment's session. The API needs the same one to resolve a download, and it
+    /// reads it from a file because that is where this stack keeps credentials -- but a second copy written
+    /// out by hand is a copy that goes stale the first time the session is replaced, and the failure looks
+    /// like the asset having been removed.
+    /// </para>
+    /// <para>
+    /// So it is published here instead, at start-up, to the path the environment names. One file, one
+    /// writer: the operator edits the environment file, the scanner writes the credential file, and every
+    /// reader of that file sees the session the scanner is actually using.
+    /// </para>
+    /// <para>
+    /// A file that cannot be written is reported and the scan continues. Publishing serves the other
+    /// services; it must not be able to stop the catalogue from being swept.
+    /// </para>
+    /// </remarks>
+    private static void PublishSessionCookie(ScannerSettings settings, ILogger logger)
+    {
+        if (settings.RobloxCookieFilePath.Length == 0)
+        {
+            logger.LogDebug(
+                "No ROBLOX_COOKIE_FILE was named, so the session cookie is not published for other services.");
+            return;
+        }
+
+        if (settings.RobloxCookie.Length == 0)
+        {
+            logger.LogWarning(
+                "No session cookie is configured, so nothing was published to {Path}. Asset delivery refuses "
+                + "unauthenticated requests, so downloads will not resolve until one is set.",
+                settings.RobloxCookieFilePath);
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(settings.RobloxCookieFilePath, settings.RobloxCookie);
+
+            logger.LogInformation(
+                "The session cookie was published to {Path} for the services that read it.",
+                settings.RobloxCookieFilePath);
+        }
+        catch (Exception exception) when (exception is IOException
+                                          || exception is UnauthorizedAccessException
+                                          || exception is NotSupportedException
+                                          || exception is ArgumentException)
+        {
+            // Reported rather than fatal: the session the scanner itself uses is unaffected, and a machine
+            // whose downloads cannot resolve is still a machine whose catalogue can be swept.
+            logger.LogWarning(
+                exception,
+                "The session cookie could not be published to {Path}.",
+                settings.RobloxCookieFilePath);
+        }
     }
 
     /// <summary>

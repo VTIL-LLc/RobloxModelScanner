@@ -11,7 +11,10 @@
  *   /api/scanner/{status,pause,resume,stop} keep their paths, their query
  *   parameters and their response shapes, and every one of them still requires
  *   the `apiKey` query parameter. Analytics, rule reference and download
- *   resolution are additive.
+ *   resolution are additive. The download route keeps both of its existing
+ *   answers -- a redirect, and a JSON document carrying the location when
+ *   `redirect=false` -- and gains a third: `stream=true`, which answers with the
+ *   asset's own bytes under a name this stack chooses.
  *
  * SECURITY MODEL
  *   Callers supply a GUID in the `apiKey` query parameter. The configured secret
@@ -51,6 +54,8 @@
  *   - Restrict network access to trusted callers and require HTTPS off-loopback.
  */
 
+using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -68,6 +73,22 @@ using Scanner.MicroApi.Implementation;
 using Scanner.MicroApi.Interfaces;
 using Scanner.MicroApi.Models;
 using Scanner.MicroApi.Options;
+
+/*
+ * The largest asset the download route will send.
+ *
+ * A model is kilobytes, and the largest this stack has ever fetched is a few megabytes, so thirty-two
+ * is an order of magnitude of headroom over anything the catalogue can produce -- and a bound on what
+ * one request can cost this process, which matters because the bytes are held here only long enough to
+ * be named.
+ */
+const int MaximumAssetBytes = 32 * 1024 * 1024;
+
+/*
+ * The sentence for an answer far too large to be the asset it claimed to be.
+ */
+const string AssetTooLarge =
+    "The answer was far larger than an asset this catalogue holds, so it was not sent.";
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -251,8 +272,10 @@ api.MapGet("/models", static async (
 api.MapGet("/models/{model:long}/download", static async (
         long model,
         bool? redirect,
+        bool? stream,
         IModelCatalogRepository repository,
         IAssetDeliveryResolver resolver,
+        IHttpClientFactory clients,
         IOptions<ScannerOptions> options,
         CancellationToken cancellationToken) =>
     {
@@ -291,6 +314,19 @@ api.MapGet("/models/{model:long}/download", static async (
                           + "required since April 2025.",
                 },
                 statusCode: StatusCodes.Status502BadGateway);
+        }
+
+        /*
+         * A caller that wants the bytes asks for them, rather than being sent to them. The site does,
+         * and the reason is the file's name: a browser following a signed content address saves the file
+         * under the name in that address, which is a hash Roblox chose, and the asset's identifier --
+         * the one string that identifies this file anywhere else in the world -- appears nowhere in it.
+         * Naming the download is therefore this route's job, because this is the only place that knows
+         * both what the asset is called and what kind of thing Roblox said it was.
+         */
+        if (stream == true)
+        {
+            return await SendAssetAsync(clients, result.Location!, model, cancellationToken).ConfigureAwait(false);
         }
 
         return redirect == false
@@ -444,3 +480,140 @@ static ModelSortField ParseSortField(string? sortBy) =>
  */
 static bool ParseDescending(string? sortDirection) =>
     sortDirection is null || !string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+
+/*
+ * Send the asset's own bytes, named after the asset rather than after the address it was found at.
+ *
+ * The fetch is made here rather than handed to the browser, and the reason is the name. A browser
+ * following a signed content address saves the file under the last segment of that address, which is a
+ * hash Roblox chose: the right bytes under a name that identifies nothing. This route is the only place
+ * that holds both the asset's identifier and the kind Roblox says the content is, so the name is
+ * decided here and the site only has to pass it on.
+ *
+ * Reading the address here also means the session is available to the read. Nothing about fetching
+ * content requires a cookie today -- a signed address is public for as long as it lasts -- but
+ * resolution does, and a stack that resolves in one place and fetches in another is one upstream change
+ * away from needing a second credential for a second caller.
+ */
+static async Task<IResult> SendAssetAsync(
+    IHttpClientFactory clients,
+    string location,
+    long model,
+    CancellationToken cancellationToken)
+{
+    using HttpClient client = clients.CreateClient(ServiceCollectionExtensions.RobloxClientName);
+
+    using HttpResponseMessage response = await client
+        .GetAsync(location, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+        .ConfigureAwait(false);
+
+    if (!response.IsSuccessStatusCode)
+    {
+        return ContentUnavailable(response.StatusCode);
+    }
+
+    /*
+     * The ceiling is checked twice on purpose. A declared length is refused before anything is
+     * allocated, and the body is measured again after it is read, because a length is a claim and the
+     * read is the fact. One answer buffered in memory is what this protects: a page that asked for a
+     * model and was answered with something enormous should stop here rather than grow the process.
+     */
+    if (response.Content.Headers.ContentLength > MaximumAssetBytes)
+    {
+        return ContentUnavailable(HttpStatusCode.BadGateway, AssetTooLarge);
+    }
+
+    byte[] content;
+
+    try
+    {
+        content = await response.Content
+            .ReadAsByteArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+    catch (HttpRequestException exception)
+    {
+        /*
+         * The address was signed and current when it was resolved, so a read that fails after that is
+         * the content host giving up part-way through its own answer. It is reported as a failure to
+         * obtain the content, because that is what it is and because a caller's next move -- ask again
+         * -- does not depend on which of the two it was.
+         */
+        return ContentUnavailable(HttpStatusCode.BadGateway, exception.Message);
+    }
+
+    if (content.Length == 0 || content.Length > MaximumAssetBytes)
+    {
+        return ContentUnavailable(HttpStatusCode.BadGateway, AssetTooLarge);
+    }
+
+    (string contentType, string extension) = DescribeAsset(response.Content.Headers.ContentType?.MediaType);
+
+    return Results.File(
+        content,
+        contentType,
+        model.ToString(CultureInfo.InvariantCulture) + extension);
+}
+
+/*
+ * The refusal a fetch that produced no usable asset is answered with.
+ *
+ * The word is chosen from what happened rather than from the status alone, because the site decides
+ * what to tell a reader from the word: a session Roblox would not accept, an asset that has been
+ * removed, and a content host that gave up are three problems with three different remedies, and a
+ * caller told only "bad gateway" would go looking for the wrong one. The status is a bad gateway in
+ * every case, because the failure is upstream in every case and this route has nothing of its own to
+ * refuse with.
+ */
+static IResult ContentUnavailable(HttpStatusCode status, string? detail = null)
+{
+    string word = status switch
+    {
+        HttpStatusCode.NotFound => AssetDeliveryResult.Removed,
+        HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => AssetDeliveryResult.NotAuthenticated,
+        _ => AssetDeliveryResult.Unreachable,
+    };
+
+    return Results.Json(
+        new
+        {
+            error = word,
+            message = detail ?? "The signed content address could not be read, so the asset was not sent.",
+        },
+        statusCode: StatusCodes.Status502BadGateway);
+}
+
+/*
+ * The name a downloaded asset is given, and the media type a caller is told it is.
+ *
+ * The identifier is the name. It is what a person can search this catalogue with, what every other
+ * record of the asset in this stack refers to, and it is stable where the address is neither stable nor
+ * meaningful. The extension follows from the kind of asset, and the media type is chosen from this table
+ * rather than passed through from Roblox, so that what a browser is handed is one of a handful of types
+ * this stack recognises and not a string some upstream composed.
+ *
+ * An unrecognised type is a model, because a model is what Roblox answers with for everything the
+ * scanner keeps and what every asset in the catalogue is.
+ */
+static (string ContentType, string Extension) DescribeAsset(string? mediaType)
+{
+    switch (mediaType)
+    {
+        case "image/png": return ("image/png", ".png");
+        case "image/jpeg": return ("image/jpeg", ".jpg");
+        case "image/gif": return ("image/gif", ".gif");
+        case "image/webp": return ("image/webp", ".webp");
+        case "image/bmp": return ("image/bmp", ".bmp");
+        case "image/svg+xml": return ("image/svg+xml", ".svg");
+        case "audio/mpeg": return ("audio/mpeg", ".mp3");
+        case "audio/ogg": return ("audio/ogg", ".ogg");
+        case "audio/wav":
+        case "audio/x-wav":
+        case "audio/wave": return ("audio/wav", ".wav");
+        case "audio/flac": return ("audio/flac", ".flac");
+        case "text/plain": return ("text/plain", ".txt");
+        case "text/xml":
+        case "application/xml": return ("application/xml", ".rbxmx");
+        default: return ("application/octet-stream", ".rbxm");
+    }
+}

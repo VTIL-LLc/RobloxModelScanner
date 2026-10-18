@@ -38,7 +38,7 @@ namespace RMS.Site.Common.Implementation
     public sealed class ServiceClient
     {
         /// <summary>
-        /// The largest response body the client will read.
+        /// The largest response body the client will read for a value.
         /// </summary>
         /// <remarks>
         /// A log slice is the largest thing this ever fetches and the service caps those at half a megabyte.
@@ -46,6 +46,46 @@ namespace RMS.Site.Common.Implementation
         /// page into an unbounded allocation.
         /// </remarks>
         private const int MaximumBodyBytes = 1024 * 1024;
+
+        /// <summary>
+        /// The largest file the client will read.
+        /// </summary>
+        /// <remarks>
+        /// A file is the one answer this client fetches that is not a document, and it is fetched on behalf
+        /// of a reader who asked for that exact thing. The ceiling is still here, because the site's memory
+        /// is shared with every other request: the API refuses an answer larger than this before it sends
+        /// one, so this is the second of two places that hold the same limit, and neither depends on the
+        /// other having held it.
+        /// </remarks>
+        private const int MaximumFileBytes = 32 * 1024 * 1024;
+
+        /// <summary>
+        /// The longest file name accepted from a service.
+        /// </summary>
+        /// <remarks>
+        /// Long enough for an asset identifier and an extension, short enough that a name cannot be a
+        /// document of its own. A longer one is discarded and the name falls back.
+        /// </remarks>
+        private const int MaximumFileNameLength = 64;
+
+        /// <summary>
+        /// The longest media type accepted from a service.
+        /// </summary>
+        /// <remarks>
+        /// Every type this stack sends is a few characters, and the longest of them carries a charset
+        /// parameter. Anything longer is a value that is not a media type, whatever it is.
+        /// </remarks>
+        private const int MaximumMediaTypeLength = 64;
+
+        /// <summary>
+        /// The name a file is given when the service did not state a usable one.
+        /// </summary>
+        private const string FallbackFileName = "asset";
+
+        /// <summary>
+        /// The type a file is sent as when the service did not state a usable one.
+        /// </summary>
+        private const string FallbackContentType = "application/octet-stream";
 
         /// <summary>
         /// The largest request body this client will send.
@@ -127,6 +167,23 @@ namespace RMS.Site.Common.Implementation
         private string KeyQueryParameter
         {
             get { return _options.ServiceKeyQueryParameter ?? string.Empty; }
+        }
+
+        /// <summary>
+        /// Fetches a file from the service.
+        /// </summary>
+        /// <param name="path">The service path, beginning with a slash.</param>
+        /// <param name="query">The query parameters, which are encoded here.</param>
+        /// <returns>The result, carrying the contents, the name and the type.</returns>
+        /// <remarks>
+        /// This is the only call in this client that returns something other than a document, and it exists
+        /// because an asset has to pass through the site to be named: a reader sent straight to the address
+        /// the service resolved would save the file under the last segment of that address, which is a hash.
+        /// The size ceiling is larger than a document's for the same reason, and it is still a ceiling.
+        /// </remarks>
+        public ServiceResult<ServiceFile> GetFile(string path, params KeyValuePair<string, string>[] query)
+        {
+            return SendRequest(path, query, "application/octet-stream", null, MaximumFileBytes);
         }
 
         /// <summary>
@@ -310,30 +367,140 @@ namespace RMS.Site.Common.Implementation
         }
 
         /// <summary>
-        /// Reads a body off a response, bounded, answering nothing when it cannot be read.
+        /// Reads a body off a response, bounded.
         /// </summary>
         /// <param name="response">The response.</param>
-        /// <returns>The bytes, or an empty array.</returns>
+        /// <param name="maximumBytes">The largest body the caller will accept.</param>
+        /// <returns>The bytes, or <see langword="null"/> when the body was too large or could not be read.</returns>
         /// <remarks>
-        /// A body that cannot be read is not this client's failure to report: the status is what the caller
-        /// acts on and the sentence is a nicety beside it. Anything larger than this site will read is
-        /// discarded for the same reason, and before it is parsed rather than after.
+        /// <para>
+        /// Null and an empty array mean different things and are kept apart. An empty array is an answer that
+        /// had nothing in it, which is the caller's to interpret; null is a body that exists and was not
+        /// taken, which the caller reports as such. Collapsing the two is how a body refused for its size
+        /// came to be read as an empty one.
+        /// </para>
+        /// <para>
+        /// A declared length is checked before the read, so an answer that announces itself as enormous costs
+        /// nothing to refuse. The check after the read is the one that counts, because a length is a claim and
+        /// the read is the fact.
+        /// </para>
+        /// <para>
+        /// A body that cannot be read is not a failure this client reports in its own words: the status is
+        /// what a caller acts on, and the sentence beside it is a nicety.
+        /// </para>
         /// </remarks>
-        private static byte[] ReadBody(HttpResponseMessage response)
+        private static byte[] ReadBody(HttpResponseMessage response, int maximumBytes)
         {
             try
             {
+                if (response.Content.Headers.ContentLength > maximumBytes) return null;
+
                 byte[] body = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
 
-                return body != null && body.Length <= MaximumBodyBytes ? body : Array.Empty<byte>();
+                return body != null && body.Length <= maximumBytes ? body : null;
             }
             catch (Exception exception) when (exception is HttpRequestException
                                               || exception is IOException
                                               || exception is ObjectDisposedException
                                               || exception is InvalidOperationException)
             {
-                return Array.Empty<byte>();
+                return null;
             }
+        }
+
+        /// <summary>
+        /// Reads the media type a file was sent as.
+        /// </summary>
+        /// <param name="response">The response.</param>
+        /// <returns>A media type this site is willing to put on its own response.</returns>
+        /// <remarks>
+        /// Accepted only in the shape a media type has -- two tokens around one slash, no parameters, no
+        /// whitespace -- and replaced with the type for unknown bytes otherwise. What that prevents is a
+        /// service deciding what a browser does with an answer: a media type is a claim about the content, and
+        /// a response carrying "text/html" would be a page this site served and did not write.
+        /// </remarks>
+        private static string ReadContentType(HttpResponseMessage response)
+        {
+            MediaTypeHeaderValue declared = response.Content.Headers.ContentType;
+
+            if (declared == null) return FallbackContentType;
+
+            string mediaType = declared.MediaType;
+
+            if (string.IsNullOrWhiteSpace(mediaType) || mediaType.Length > MaximumMediaTypeLength)
+            {
+                return FallbackContentType;
+            }
+
+            foreach (char character in mediaType)
+            {
+                if (!char.IsLetterOrDigit(character)
+                    && character != '/'
+                    && character != '-'
+                    && character != '+'
+                    && character != '.')
+                {
+                    return FallbackContentType;
+                }
+            }
+
+            int slash = mediaType.IndexOf('/');
+
+            return slash > 0 && slash < mediaType.Length - 1 ? mediaType : FallbackContentType;
+        }
+
+        /// <summary>
+        /// Reads the name a file was sent under.
+        /// </summary>
+        /// <param name="response">The response.</param>
+        /// <returns>A plain file name, or the fallback when the service gave none that is one.</returns>
+        /// <remarks>
+        /// The name goes into a Content-Disposition header, so what is accepted is a name and nothing that
+        /// can end the header or step out of a directory: no quotes, no separators, no control characters, no
+        /// leading or trailing dot, and a length that could plausibly be an identifier. Anything else is
+        /// replaced, because a file saved under a fallback name is a nuisance where a header broken by an
+        /// upstream value is a response this site sent and cannot explain.
+        /// </remarks>
+        private static string ReadFileName(HttpResponseMessage response)
+        {
+            ContentDispositionHeaderValue disposition = response.Content.Headers.ContentDisposition;
+
+            if (disposition == null) return FallbackFileName;
+
+            // The parser hands the header's element back as it was written, so a quoted name arrives with its
+            // quotes: they are the header's punctuation and not part of the name.
+            string name = disposition.FileName == null ? null : disposition.FileName.Trim().Trim('"').Trim();
+
+            return IsPlainFileName(name) ? name : FallbackFileName;
+        }
+
+        /// <summary>
+        /// Determines whether a value can be used as a file name.
+        /// </summary>
+        /// <param name="name">The value.</param>
+        /// <returns><see langword="true"/> when it can.</returns>
+        private static bool IsPlainFileName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length > MaximumFileNameLength) return false;
+
+            if (name.StartsWith(".", StringComparison.Ordinal)
+                || name.EndsWith(".", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            foreach (char character in name)
+            {
+                if (!char.IsLetterOrDigit(character)
+                    && character != '-'
+                    && character != '_'
+                    && character != '.')
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -379,18 +546,46 @@ namespace RMS.Site.Common.Implementation
         }
 
         /// <summary>
-        /// Sends one request and reads its body.
+        /// Sends one request and reads its body as text.
         /// </summary>
         /// <param name="path">The service path, beginning with a slash.</param>
         /// <param name="query">The query parameters.</param>
         /// <param name="accept">The media type the caller wants.</param>
         /// <param name="content">The body to send, or <see langword="null"/> for a read.</param>
         /// <returns>The result.</returns>
+        /// <remarks>
+        /// A document, decoded as UTF-8. A body that is not one is a failure the caller already describes, so
+        /// it is handed on as text and left to the deserializer, which refuses it there beside the code that
+        /// asked for its own shape.
+        /// </remarks>
         private ServiceResult<string> Send(
             string path,
             KeyValuePair<string, string>[] query,
             string accept,
             HttpContent content)
+        {
+            ServiceResult<ServiceFile> answer = SendRequest(path, query, accept, content, MaximumBodyBytes);
+
+            return answer.IsSuccess
+                ? ServiceResult<string>.Success(Encoding.UTF8.GetString(answer.Value.Content))
+                : ServiceResult<string>.Failure(answer.StatusCode, answer.Error, answer.Reason);
+        }
+
+        /// <summary>
+        /// Sends one request and reads its body, bounded by the caller's ceiling.
+        /// </summary>
+        /// <param name="path">The service path, beginning with a slash.</param>
+        /// <param name="query">The query parameters.</param>
+        /// <param name="accept">The media type the caller wants.</param>
+        /// <param name="content">The body to send, or <see langword="null"/> for a read.</param>
+        /// <param name="maximumBytes">The largest body the caller will accept.</param>
+        /// <returns>The result, carrying the file shape whether or not the body is a file.</returns>
+        private ServiceResult<ServiceFile> SendRequest(
+            string path,
+            KeyValuePair<string, string>[] query,
+            string accept,
+            HttpContent content,
+            int maximumBytes)
         {
             if (!IsConfigured)
             {
@@ -401,7 +596,7 @@ namespace RMS.Site.Common.Implementation
                  * single sentence covering both would send an operator looking for a service fault that does
                  * not exist.
                  */
-                return ServiceResult<string>.Failure(
+                return ServiceResult<ServiceFile>.Failure(
                     HttpStatusCode.ServiceUnavailable,
                     _options.ServiceKeyFileProblem.Length > 0
                         ? "This site was given the path of a key file and cannot read it: "
@@ -454,35 +649,48 @@ namespace RMS.Site.Common.Implementation
                          * substitute said only that something had failed, and a page telling an operator "the
                          * service is not available" about a service that answered perfectly well with a
                          * refusal sends them looking for a fault that does not exist.
+                         *
+                         * The document is read at the document ceiling whatever the caller's was. A refusal is
+                         * one of these small documents, so a body far larger than that is not one, and reading
+                         * it at a file's ceiling to find that out would be reading a file to read a sentence.
                          */
-                        ServiceFault fault = ReadFault(ReadBody(response));
+                        byte[] refusal = ReadBody(response, MaximumBodyBytes);
+                        ServiceFault fault = refusal == null ? null : ReadFault(refusal);
 
                         return fault == null
-                            ? ServiceResult<string>.Failure(response.StatusCode, Describe(response.StatusCode))
-                            : ServiceResult<string>.Failure(response.StatusCode, fault.Message, fault.Error);
+                            ? ServiceResult<ServiceFile>.Failure(response.StatusCode, Describe(response.StatusCode))
+                            : ServiceResult<ServiceFile>.Failure(response.StatusCode, fault.Message, fault.Error);
                     }
 
-                    byte[] body = ReadBody(response);
+                    byte[] body = ReadBody(response, maximumBytes);
 
-                    if (body.Length > MaximumBodyBytes)
+                    if (body == null)
                     {
-                        return ServiceResult<string>.Failure(
+                        // Null is "there was a body and it was not read": too large for the caller's ceiling,
+                        // or a read that failed part-way. An empty answer is an empty array and is a success,
+                        // because an empty document is the caller's to interpret and an empty file is a file.
+                        return ServiceResult<ServiceFile>.Failure(
                             response.StatusCode,
-                            "The service's answer was larger than this site will read.");
+                            "The service's answer was larger than this site will read, or could not be read.");
                     }
 
-                    return ServiceResult<string>.Success(Encoding.UTF8.GetString(body));
+                    return ServiceResult<ServiceFile>.Success(new ServiceFile
+                    {
+                        Content = body,
+                        ContentType = ReadContentType(response),
+                        FileName = ReadFileName(response),
+                    });
                 }
             }
             catch (HttpRequestException exception)
             {
-                return ServiceResult<string>.Failure(HttpStatusCode.ServiceUnavailable, exception.Message);
+                return ServiceResult<ServiceFile>.Failure(HttpStatusCode.ServiceUnavailable, exception.Message);
             }
             catch (TaskCanceledException)
             {
                 // A timeout surfaces as a cancellation rather than as a request exception, and the timeout is
                 // what an operator actually needs to hear: the service is up but is not answering in time.
-                return ServiceResult<string>.Failure(
+                return ServiceResult<ServiceFile>.Failure(
                     HttpStatusCode.GatewayTimeout,
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -491,7 +699,7 @@ namespace RMS.Site.Common.Implementation
             }
             catch (Exception exception) when (exception is InvalidOperationException || exception is UriFormatException)
             {
-                return ServiceResult<string>.Failure(HttpStatusCode.ServiceUnavailable, exception.Message);
+                return ServiceResult<ServiceFile>.Failure(HttpStatusCode.ServiceUnavailable, exception.Message);
             }
             finally
             {

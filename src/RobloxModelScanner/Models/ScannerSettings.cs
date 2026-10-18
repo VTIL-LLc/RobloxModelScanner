@@ -146,6 +146,16 @@ public sealed record ScannerSettings
     public required string RobloxCookie { get; init; }
 
     /// <summary>
+    /// The file the session cookie is published to for the services that need it.
+    /// </summary>
+    /// <remarks>
+    /// The scanner is the only program here that holds a Roblox session, and the API needs the same
+    /// session to resolve a download. This names the file it is written to. It is empty when nothing
+    /// named one, in which case the scanner uses its own cookie and publishes nothing.
+    /// </remarks>
+    public required string RobloxCookieFilePath { get; init; }
+
+    /// <summary>
     /// The creators whose assets are ignored entirely.
     /// </summary>
     /// <remarks>

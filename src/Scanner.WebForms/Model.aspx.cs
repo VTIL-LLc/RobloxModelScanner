@@ -156,10 +156,10 @@ namespace Scanner.WebForms
         /// <returns>The markup, which is empty when nothing was left.</returns>
         /// <remarks>
         /// <para>
-        /// The download link is a handler rather than a direct address, because the API's signed address has to be
-        /// resolved with the site's key and cannot be handed to the browser to fetch. When that resolution fails
-        /// the handler cannot render a page, so it redirects here with a short status word, and this turns the
-        /// word into a sentence.
+        /// The download link is a handler rather than a direct address, because the asset has to be fetched with
+        /// the site's key and named on this side: the API's signed address is a step on the way rather than what
+        /// a browser is sent to. When the fetch fails the handler cannot render a page, so it redirects here with
+        /// a short status word, and this turns the word into a sentence.
         /// </para>
         /// <para>
         /// A word this page does not know is shown as a generic failure rather than ignored. An unreadable code
@@ -178,10 +178,10 @@ namespace Scanner.WebForms
                 case "unusable":
                     return Html.Alert(
                         "warning",
-                        "The download address was not usable.",
-                        "Roblox answered with an address that is not a Roblox address over HTTPS, so this site "
-                        + "would not send a browser to it. This is either a change on Roblox's side or something "
-                        + "between this machine and it.");
+                        "The download could not be completed.",
+                        "The handler that fetches a model answered with a reason this page has no sentence for, "
+                        + "which means the two ends of this site have drifted. The site's own error log has the "
+                        + "detail.");
 
                 case "unavailable":
                     return Html.Alert(
@@ -211,7 +211,7 @@ namespace Scanner.WebForms
                         "The API has no Roblox session.",
                         "The API was started without a Roblox session cookie, and Roblox has required one for "
                         + "asset delivery since April 2025. Paste a cookie into the scanner's settings file and "
-                        + "restart the API.");
+                        + "restart the scanner and the API: the scanner publishes it to the file the API reads.");
 
                 // The API holds a session and Roblox would not accept it. This is the case that used to be
                 // reported as a missing cookie, which sent whoever was reading it looking for a setting that
@@ -220,17 +220,19 @@ namespace Scanner.WebForms
                     return Html.Alert(
                         "warning",
                         "The API's Roblox session is out of date.",
-                        "The API holds a session cookie and Roblox did not accept it, so no address can be "
+                        "The API holds a session cookie and Roblox did not accept it, so no content can be "
                         + "issued. A cookie stops being accepted when the account signs out or its password "
-                        + "changes. Paste a fresh one into the scanner's settings file and restart the API.");
+                        + "changes. Paste a fresh one into the scanner's settings file and restart the scanner "
+                        + "and the API: the scanner republishes it for the API to read.");
 
                 case "unresolved":
                     return Html.Alert(
                         "warning",
-                        "The API could not resolve an address for this asset.",
-                        "The API reached Roblox's delivery service and no usable address came back. Assets that "
-                        + "Roblox has removed or moderated answer this way, as does a delivery service having a "
-                        + "bad day. Trying again in a moment is reasonable.");
+                        "The API could not fetch this asset.",
+                        "The API reached Roblox's delivery service and no usable content came back: either no "
+                        + "address was issued or the address it issued could not be read. Assets that Roblox has "
+                        + "removed or moderated answer this way, as does a delivery service having a bad day. "
+                        + "Trying again in a moment is reasonable.");
 
                 case "slow":
                     return Html.Alert(

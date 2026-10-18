@@ -78,6 +78,17 @@ public static class ServiceCollectionExtensions
     private const string ProductUserAgent = "RobloxModelScanner/1.0 (+asset-detection)";
 
     /// <summary>
+    /// The name the client that talks to Roblox is registered under.
+    /// </summary>
+    /// <remarks>
+    /// Two things use it: the resolver, which turns an asset identifier into a signed content address, and
+    /// the download route, which follows that address to the bytes. They share a name rather than a copy of
+    /// the configuration because the session cookie is attached to it, and a second client built from a
+    /// second copy of that code is a second place for the credential to be attached wrongly.
+    /// </remarks>
+    internal const string RobloxClientName = "roblox";
+
+    /// <summary>
     /// The environment variable that overrides the configured API key.
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "SCANNER_API_KEY";
@@ -247,23 +258,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAnalyticsService, SqliteAnalyticsService>();
         services.AddSingleton<IScannerControlService, ScannerControlService>();
 
-        services.AddHttpClient<IAssetDeliveryResolver, AssetDeliveryResolver>(static (provider, client) =>
-        {
-            // Roblox answers or fails a resolve request quickly, so a short timeout keeps a stuck upstream
-            // from occupying a caller. The default handler already follows redirects and pools sockets.
-            client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(ProductUserAgent);
+        services.AddHttpClient(RobloxClientName, ConfigureRobloxClient)
+            .ConfigurePrimaryHttpMessageHandler(static () => CreateRobloxHandler());
 
-            ScannerOptions options = provider.GetRequiredService<IOptions<ScannerOptions>>().Value;
-            if (!string.IsNullOrWhiteSpace(options.RobloxCookie))
-            {
-                // Roblox requires an authenticated session for asset delivery, so the cookie is attached
-                // here and never leaves the server. It is not returned by any endpoint.
-                client.DefaultRequestHeaders.Add(
-                    CookieHeaderName,
-                    $"{RobloxSessionCookieName}={options.RobloxCookie}");
-            }
-        });
+        services.AddHttpClient<IAssetDeliveryResolver, AssetDeliveryResolver>(RobloxClientName);
 
         // Catalogue and analytics responses are repetitive JSON; compressing them cuts the bytes the
         // website proxy has to move, which matters because every page render fans out to several calls.
@@ -495,6 +493,59 @@ public static class ServiceCollectionExtensions
         if (!string.IsNullOrWhiteSpace(path)) return ReadSecretFile(path);
 
         return configuration[ApiKeyEnvironmentVariable];
+    }
+
+    /// <summary>
+    /// Configures the client that talks to Roblox.
+    /// </summary>
+    /// <param name="provider">The provider, read for the resolved options.</param>
+    /// <param name="client">The client being configured.</param>
+    /// <remarks>
+    /// The clock is short on purpose: Roblox answers or fails a resolve request quickly, and a stuck
+    /// upstream holding a caller for the default hundred seconds is worse than a refusal it can act on.
+    /// </remarks>
+    private static void ConfigureRobloxClient(IServiceProvider provider, HttpClient client)
+    {
+        client.Timeout = TimeSpan.FromSeconds(20);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd(ProductUserAgent);
+
+        ScannerOptions options = provider.GetRequiredService<IOptions<ScannerOptions>>().Value;
+        if (!string.IsNullOrWhiteSpace(options.RobloxCookie))
+        {
+            // Roblox requires an authenticated session for asset delivery, so the cookie is attached
+            // here and never leaves the server. It is not returned by any endpoint.
+            client.DefaultRequestHeaders.Add(
+                CookieHeaderName,
+                $"{RobloxSessionCookieName}={options.RobloxCookie}");
+        }
+    }
+
+    /// <summary>
+    /// Creates the handler the Roblox client sends through.
+    /// </summary>
+    /// <returns>The handler.</returns>
+    /// <remarks>
+    /// <para>
+    /// Decompression is on, and it is not a detail. Roblox stores content compressed and serves it with
+    /// <c>Content-Encoding: gzip</c>, so a client that did not decode would hand a caller a few kilobytes
+    /// of gzip where the asset was asked for -- a file with the right name and the wrong bytes, which is
+    /// worse than no file at all, because it looks like it worked.
+    /// </para>
+    /// <para>
+    /// Redirection and connection pooling keep their defaults, which is what makes a signed content
+    /// address usable: it is a redirect target on hosts that move between Roblox's own names. The pool is
+    /// kept shorter than the default lifetime because a deployment runs for days and an address that
+    /// stopped answering should be replaced rather than reused.
+    /// </para>
+    /// </remarks>
+    private static HttpMessageHandler CreateRobloxHandler()
+    {
+        return new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All,
+            MaxConnectionsPerServer = 32,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+        };
     }
 
     /// <summary>

@@ -1190,9 +1190,10 @@ namespace Scanner.WebForms.Infrastructure
                 "Download",
                 Html.Link(
                     "/Api/Download.ashx?id=" + identifier,
-                    "resolve a download link",
-                    "Roblox issues a signed address for the asset. It is resolved when this is followed and it "
-                    + "expires shortly afterwards, so the address is never stored and never shown here.")));
+                    "download the model",
+                    "The file is fetched through the API and saved under the asset's own identifier with an "
+                    + "extension for the kind of content it is. Roblox's signed address is used on the way and "
+                    + "expires shortly afterwards, so it is never stored and never shown here.")));
 
             builder.Append("</div>");
 
@@ -1291,10 +1292,11 @@ namespace Scanner.WebForms.Infrastructure
         /// <returns><see langword="true"/> when it may.</returns>
         /// <remarks>
         /// <para>
-        /// One implementation, called by the page that renders a link and by the handler that redirects a
-        /// browser. The handler's use of it is the one that matters: a destination taken from an upstream
-        /// answer and handed to a browser is an open redirect, and two copies of this check would be two
-        /// chances to fix a bug in one of them.
+        /// One implementation, called by the page that renders a link. It used to be called by the download
+        /// handler as well, back when the handler sent a browser to the resolved address; it no longer does,
+        /// because the bytes are read through the API instead. The check is kept here because a column of
+        /// upstream addresses is still rendered as links, and the day a second caller needs it, it is one
+        /// implementation rather than two that agree until they do not.
         /// </para>
         /// <para>
         /// Only HTTPS, and only without credentials. A URL that carries a user name would send it to the host

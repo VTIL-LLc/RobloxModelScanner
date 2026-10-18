@@ -115,7 +115,8 @@ Three different things look identical from outside, and the log tells them apart
 | Symptom | First thing to check |
 | --- | --- |
 | A site renders `502` | Its service is not running, or the key file it presents cannot be read. |
-| A download answers `502` | `ROBLOX_COOKIE` is not configured for the API. Asset delivery refuses unauthenticated requests. |
+| A download answers `502` | The API has no session cookie. `artifacts/credentials/roblox-cookie` is published by the scanner at start-up, so check the scanner is running and that `ROBLOX_COOKIE` is set in its `.env`. |
+| The model page says `stale` | Roblox refused the session. Replace `ROBLOX_COOKIE` in `artifacts/scanner/.env` and restart the scanner and the API: the scanner republishes the file the API reads. |
 | The scanner site shows `unresolved` | The scanner's session cookie is missing, not the API being down — the two are distinguished on purpose. |
 | `rmsdeploy build` fails on a copy | A service or IIS Express is holding the file. Stop it. |
 | `rmsdeploy build` fails on the Web Forms sites with `MSB4226` | The Visual Studio installation it picked has no web build workload. Run `rmsdeploy probe` and read the `web build targets` line. |

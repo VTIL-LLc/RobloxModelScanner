@@ -137,9 +137,35 @@ public static class ScannerSettingsFactory
             FoundWebhook = environment.Get("MAIN_WEBHOOK").Trim(),
             DownloadWebhook = environment.Get("AUTODOWNLOAD_WEBHOOK").Trim(),
             RobloxCookie = environment.Get("ROBLOX_COOKIE").Trim(),
+            RobloxCookieFilePath = ResolvePublishedCookiePath(environment),
             IgnoredCreators = ReadIgnoredCreators(environment.Get("IGNORED_CREATORS")),
             Verbose = environment.GetFlag("VERBOSE", false)
         };
+    }
+
+    /// <summary>
+    /// Resolves the file the session cookie is published to.
+    /// </summary>
+    /// <param name="environment">The environment.</param>
+    /// <returns>An absolute path, or an empty string when nothing named one.</returns>
+    /// <remarks>
+    /// <para>
+    /// The variable is the same one the API reads the cookie from, and that is deliberate: the two ends
+    /// are one file, written by the program that owns the session and read by the program that needs it,
+    /// and two names for one path is how a deployment ends up writing a credential to one place and
+    /// looking for it in another.
+    /// </para>
+    /// <para>
+    /// Absent is a legitimate configuration rather than a mistake. It means this installation has nothing
+    /// that needs the session besides the scanner, and the variable is unset so that nothing is published.
+    /// A path that was named but is relative is resolved the same way every other path is.
+    /// </para>
+    /// </remarks>
+    private static string ResolvePublishedCookiePath(IEnvironmentFile environment)
+    {
+        string configured = environment.Get("ROBLOX_COOKIE_FILE").Trim();
+
+        return configured.Length == 0 ? string.Empty : Path.GetFullPath(configured);
     }
 
     /// <summary>

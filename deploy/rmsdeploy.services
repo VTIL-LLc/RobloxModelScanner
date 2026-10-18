@@ -108,6 +108,14 @@
 # log that it cannot fetch payloads -- a visible failure rather than a silent
 # one.
 #
+# The scanner is the only program in this stack that holds that session, so it is
+# the only one that publishes it. ROBLOX_COOKIE_FILE below names the file the API
+# reads the same cookie from: one file, written here at start-up from the value in
+# .env, read there for download resolution. That is why the value is not written
+# into this manifest as a credential of its own -- there is nothing to keep in
+# step by hand, and a copied cookie that went stale would present as an asset
+# having been removed.
+#
 # Windows only: the scanner is the one program in the stack with a
 # platform-specific target framework, because it uses a desktop notification of
 # a matched model and a tray icon as its interactive stop control.
@@ -118,7 +126,7 @@ name         = rms-scanner
 description  = RMS catalogue scanner (sole writer of the catalogue)
 working_dir  = %ROOT%/artifacts/scanner
 windows.executable = %ROOT%/artifacts/scanner/RobloxModelScanner.exe
-environment  = CATALOGUE_PATH=%ROOT%/artifacts/data/catalogue.db; MODEL_DIRECTORY=%ROOT%/artifacts/data/models; CONTROL_PATH=%ROOT%/artifacts/data/control.json
+environment  = CATALOGUE_PATH=%ROOT%/artifacts/data/catalogue.db; MODEL_DIRECTORY=%ROOT%/artifacts/data/models; CONTROL_PATH=%ROOT%/artifacts/data/control.json; ROBLOX_COOKIE_FILE=%ROOT%/artifacts/credentials/roblox-cookie
 platforms    = windows
 restart      = always
 
@@ -170,9 +178,13 @@ executable   = %ROOT%/artifacts/api/Scanner.MicroApi
 # the file that holds it. It used to be readable only from an environment value,
 # which is the one place the note above says a secret does not go, so a deployment
 # that followed this manifest had no way to give the API its cookie and every
-# download answered 502 while the catalogue served normally. The scanner's copy of
-# the same cookie lives in the .env file beside it, because the scanner reads its
-# settings from that file and cannot be told one any other way.
+# download answered 502 while the catalogue served normally.
+#
+# The file is written rather than merely read. Nothing here pastes a cookie into
+# it: the scanner writes it at start-up from the value in its own .env, because
+# the scanner is what holds the session and a second copy maintained by hand is a
+# copy that goes stale the first time the session is replaced. So this entry names
+# a file, the scanner entry names the same file, and neither carries the value.
 environment  = ASPNETCORE_URLS=http://localhost:5000; SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; SCANNER_API_KEY_FILE=%ROOT%/artifacts/credentials/api-key; ROBLOX_COOKIE_FILE=%ROOT%/artifacts/credentials/roblox-cookie
 restart      = always
 

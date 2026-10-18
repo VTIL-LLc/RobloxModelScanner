@@ -45,6 +45,7 @@ lines are written back as they were, with the file's own line ending.
 | `CONTROL_PATH` | `<app>/Files/control.json` | Where pause and stop intent is written. |
 | `IGNORED_CREATORS` | two identifiers | Creators whose assets are not downloaded. Setting it replaces the default list. |
 | `VERBOSE` | `false` | Per-asset logging. |
+| `ROBLOX_COOKIE_FILE` | — | Where the session cookie is published for the services that need it. Written at start-up from `ROBLOX_COOKIE`; unset means nothing is published. |
 | `ROBLOX_COOKIE` | — | The `.ROBLOSECURITY` value. Asset delivery refuses unauthenticated requests. |
 | `MAIN_WEBHOOK` | — | Where script-carrying models are reported. |
 | `AUTODOWNLOAD_WEBHOOK` | — | Where kept payloads are reported. |

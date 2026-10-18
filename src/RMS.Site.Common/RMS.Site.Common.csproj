@@ -73,6 +73,7 @@
     <Compile Include="Models\SiteAccount.cs" />
     <Compile Include="Models\AuditEntry.cs" />
     <Compile Include="Models\LoginResult.cs" />
+    <Compile Include="Models\ServiceFile.cs" />
     <Compile Include="Models\ServiceResult.cs" />
     <Compile Include="Models\SiteNotice.cs" />
     <Compile Include="Models\UserSession.cs" />
