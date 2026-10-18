@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      The logger is a real dependency rather than a hand-rolled console writer because the scanner now
+      writes levels, and the level it writes at is configuration: a bulk repair over a hundred thousand
+      rows is unreadable at the detail a single asset is best debugged at. Microsoft.Extensions.Logging is
+      the same abstraction every service in this stack uses, so its output is shaped the same way and the
+      deployer's log store reads it without a special case.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Features.AssetAnalysis/Features.AssetAnalysis.csproj" />
+    <ProjectReference Include="../Features.AssetDelivery/Features.AssetDelivery.csproj" />
+    <ProjectReference Include="../Features.Tray/Features.Tray.csproj" />
+    <!--
+      The references to Roblox.Wcf, Scanner.WcfServiceHost and ServiceInstallers
+      were removed here. None of them was used by any source file in this
+      project, and the two that target net48 could not be used anyway: a net8.0
+      project cannot consume a .NET Framework assembly, so referencing one
+      produced NU1702 on every build. That warning says the reference was
+      resolved for a framework other than the one the project asks for, which
+      means the link is unsound rather than merely untidy.
+      The service supervision they provided is being replaced by RMS.ServiceHost
+      and RMS.ServiceInstaller, which are .NET 8 and referenced where they are
+      actually needed. Both legacy projects still build on their own; they are
+      declared as their own steps in deploy/rmsdeploy.build.
+    -->
+  </ItemGroup>
+</Project>

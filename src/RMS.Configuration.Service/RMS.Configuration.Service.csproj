@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a
+      doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RMS.Configuration.Service</RootNamespace>
+    <AssemblyName>RMS.Configuration.Service</AssemblyName>
+    <!--
+      Like every service in this stack, this one is an internal surface: bound to a private
+      address, reached by the site's own proxies, and never presented as a public application.
+    -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The plan, the INI document and the platform facts are shared types on purpose. This service
+      reports what the installer will read, and the only way to be sure it reports the truth is for
+      it to read the plan with the same code the installer reads it with.
+    -->
+    <ProjectReference Include="..\RMS.ServiceModel\RMS.ServiceModel.csproj" />
+  </ItemGroup>
+
+</Project>

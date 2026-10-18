@@ -1,0 +1,6 @@
+# A batch file stored with LF endings breaks in ways that are hard to read back:
+# a label is not found, a block is read as one line, and the failure looks like a
+# typo in the script rather than a line ending. Keep them with the endings a
+# command shell expects, whatever the machine's own settings are.
+*.bat text eol=crlf
+*.cmd text eol=crlf

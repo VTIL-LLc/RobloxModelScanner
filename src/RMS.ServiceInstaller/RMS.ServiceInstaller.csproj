@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a
+      doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RMS.ServiceInstaller</RootNamespace>
+    <AssemblyName>RMS.ServiceInstaller</AssemblyName>
+    <!--
+      The service control manager is reached through P/Invoke rather than through the ServiceProcess
+      package. The package's installer path is built around System.Configuration.Install and the
+      installutil host, neither of which carries over to the deployment this stack uses; the four
+      calls that actually matter are stable and are declared here directly.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RMS.ServiceModel\RMS.ServiceModel.csproj" />
+  </ItemGroup>
+
+</Project>

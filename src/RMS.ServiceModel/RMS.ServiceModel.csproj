@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public member is forced to carry a doc comment,
+      matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RMS.ServiceModel</RootNamespace>
+    <AssemblyName>RMS.ServiceModel</AssemblyName>
+    <!--
+      This library is referenced by the service host and the service installer, both of which run
+      on Windows, Linux and macOS. Nothing in it may reach for a platform API.
+    -->
+  </PropertyGroup>
+
+</Project>

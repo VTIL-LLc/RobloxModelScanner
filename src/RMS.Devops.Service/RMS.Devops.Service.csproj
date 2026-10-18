@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a
+      doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RMS.Devops.Service</RootNamespace>
+    <AssemblyName>RMS.Devops.Service</AssemblyName>
+    <!--
+      The service is an internal surface. It is bound to a private address and reached by the DevOps
+      site's own proxies, so it is not presented as a public web application.
+    -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The catalogue index is read, never written, by this service: the indexing service owns it. A
+      read-only connection string is all that is needed, which is why the package is here rather than a
+      project reference to the writer.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The plan and the run record are shared types on purpose. The session that writes them and the
+      session that reads them must agree on the file names and the key names, and the only way to
+      guarantee that is for both to be the same code.
+    -->
+    <ProjectReference Include="..\RMS.ServiceModel\RMS.ServiceModel.csproj" />
+  </ItemGroup>
+
+</Project>

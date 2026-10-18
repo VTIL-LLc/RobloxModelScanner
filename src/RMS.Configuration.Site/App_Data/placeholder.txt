@@ -1,0 +1,1 @@
+This directory holds the site's database. IIS does not serve it, and the deployment must not either.

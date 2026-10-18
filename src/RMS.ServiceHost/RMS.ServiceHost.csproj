@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a
+      doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>RMS.ServiceHost</RootNamespace>
+    <AssemblyName>RMS.ServiceHost</AssemblyName>
+    <!--
+      A console subsystem program is what the service control manager, systemd and launchd all expect to
+      launch. Windows additionally accepts it as a service, which this program detects at start-up.
+    -->
+    <TrimMode>partial</TrimMode>
+    <!--
+      The program is published per platform by the deployer, so the identifier is supplied there rather
+      than being pinned here; pinning it would make a plain `dotnet build` produce a machine-specific host
+      that cannot be run locally.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      ServiceBase is the Windows service control protocol. It is referenced through the platform package
+      rather than the framework because the desk-side implementation of the service manager is not part of
+      the shared framework any more. Nothing in this program touches it on Linux or macOS: the type is only
+      loaded inside the branch that has already established the platform is Windows and that the parent is
+      the service control manager.
+    -->
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RMS.ServiceModel\RMS.ServiceModel.csproj" />
+  </ItemGroup>
+
+</Project>

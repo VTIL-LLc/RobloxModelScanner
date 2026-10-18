@@ -1,0 +1,16 @@
+{
+  "name": "rms-model-scanner-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The client of the RMS model scanner site: the refreshing regions, the sortable tables and the dismissable alerts.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "verify": "webpack --config webpack.config.js --json --no-color | node -e \"let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const r=JSON.parse(s);if(r.errors.length){console.error(r.errors.join('\\n'));process.exit(1);}console.log('webpack: '+r.assets.length+' asset(s), no source maps');});\""
+  },
+  "devDependencies": {
+    "terser-webpack-plugin": "5.6.1",
+    "webpack": "5.95.0",
+    "webpack-cli": "5.1.4"
+  }
+}

@@ -1,0 +1,115 @@
+# =============================================================================
+# RMS DEPLOYER — REQUIREMENTS
+# =============================================================================
+# Every prerequisite the stack needs, described per platform.
+#
+# A section is one requirement. The keys are:
+#
+#   kind         dotnet | node | msbuild | archive | package | installer
+#   version      Free text, reported by `rmsdeploy probe`. Not used for logic.
+#   url          Where to download it. Only https is accepted.
+#   install      For the package kind, the command that installs it. Also used
+#                as a fallback when a download fails.
+#   install_dir  Where an extracted archive is placed, relative to the root.
+#   strip        Leading path components to remove while extracting. Official
+#                toolchain archives wrap their payload differently per platform,
+#                so this is declared rather than guessed.
+#   verify_tool  Presence is decided by the deployer's own toolchain search.
+#                Accepted values: dotnet, node, npm, msbuild, xsp. This is the
+#                preferred check, because it is the same resolution the build
+#                steps use, so the requirement and the build can never disagree
+#                about whether a tool is there.
+#   verify_path  Presence is decided by semicolon separated paths; any one that
+#                exists satisfies the requirement. For a toolchain that installs
+#                into a known place without putting itself on PATH.
+#   verify       A shell command, run by the platform shell, exit status decides.
+#                The fallback for anything without a marker file. Checked last,
+#                and silent on failure.
+#   provides     A directory, relative to the root, prepended to PATH once the
+#                requirement has been installed.
+#   silent_args  For the installer kind, the unattended installation arguments.
+#   platforms    Which platforms the requirement applies to. Absent means all of
+#                them. A requirement that does not apply to the host is reported
+#                as "not used on <platform>" by probe and skipped by bootstrap,
+#                so a Windows deployment is never told that Mono is missing.
+#
+# An attribute written without a platform prefix applies to every platform; a
+# platform-prefixed attribute overrides it for that platform only.
+#
+# Values may contain %ROOT%, which is the repository root, or %NAME% for any
+# environment variable. An unset name is left visible rather than expanded to
+# nothing, so a mistake reads as a mistake instead of as a plausible path.
+#
+# Nothing here embeds a secret, and nothing is executed unseen: the only
+# downloaded artefact that is ever run is the Visual Studio Build Tools, whose
+# arguments are spelled out below.
+# =============================================================================
+
+[dotnet]
+kind              = dotnet
+version           = 8.0.404
+install_dir       = .tools/dotnet
+provides          = .tools/dotnet
+verify_tool       = dotnet
+windows.url       = https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.404/dotnet-sdk-8.0.404-win-x64.zip
+linux.url         = https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.404/dotnet-sdk-8.0.404-linux-x64.tar.gz
+macos.url         = https://builds.dotnet.microsoft.com/dotnet/Sdk/8.0.404/dotnet-sdk-8.0.404-osx-x64.tar.gz
+
+[node]
+kind              = node
+version           = 22.12.0
+install_dir       = .tools/node
+provides          = .tools/node
+verify_tool       = node
+# The archives wrap their payload in a versioned directory on every platform, so
+# one strip level normalises all three to the same installation shape.
+strip             = 1
+windows.url       = https://nodejs.org/dist/v22.12.0/node-v22.12.0-win-x64.zip
+linux.url         = https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz
+macos.url         = https://nodejs.org/dist/v22.12.0/node-v22.12.0-darwin-x64.tar.gz
+
+[vs-buildtools]
+kind              = installer
+version           = 17
+platforms         = windows
+# The requirement is "an MSBuild that can compile a .NET Framework project".
+# verify_tool reads the deployer's own resolution of MSBuild, which looks in the
+# well-known Visual Studio installation roots as well as on PATH, so a machine
+# that already has the Build Tools is recognised without a shell command and
+# without starting a multi-gigabyte install for nothing.
+#
+# Note that this does not include the C++ workload: the deployer itself is
+# already compiled by the time it runs, so nothing in this stack needs cl.exe.
+# The install is quiet, waits for completion, and asks for exactly the three
+# things the Web Forms sites need -- MSBuild, the web workload, and the .NET
+# Framework 4.8 targeting pack.
+verify_tool       = msbuild
+windows.url       = https://aka.ms/vs/17/release/vs_BuildTools.exe
+windows.silent_args = --quiet --wait --norestart --nocache --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Workload.NetWeb --add Microsoft.Net.Component.4.8.SDK --add Microsoft.Net.Component.4.8.TargetingPack --add Microsoft.VisualStudio.Component.NuGet
+
+[mono]
+kind              = package
+version           = 6.x
+platforms         = linux macos
+# Mono supplies the MSBuild that can compile the Web Forms sites on Linux and
+# macOS, and the xsp host that serves them. verify_tool covers it on both
+# platforms because Mono's MSBuild goes into a standard location that the
+# toolchain search knows about.
+#
+# It is installed through the platform's own package manager because Mono is not
+# published as a portable archive for Linux, and because signature verification
+# is a job for those tools rather than for this program.
+verify_tool       = msbuild
+linux.install     = sudo apt-get update && sudo apt-get install -y mono-complete
+macos.install     = brew install mono
+
+[mono-macos-fallback]
+kind              = archive
+version           = stable
+install_dir       = /Library/Frameworks/Mono.framework
+platforms         = macos
+# The fallback for a macOS host without Homebrew. The official package installs
+# into /Library/Frameworks, which is where the toolchain search looks, and the
+# .pkg branch of the extractor hands it to the system installer.
+verify_path       = /Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild
+macos.url         = https://download.mono-project.com/archive/stable/macos-10-universal/MonoFramework-MDK-latest.macos10.xamarin.universal.pkg

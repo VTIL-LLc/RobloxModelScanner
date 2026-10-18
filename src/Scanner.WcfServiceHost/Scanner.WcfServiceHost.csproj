@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>Scanner.WcfServiceHost</AssemblyName>
+    <RootNamespace>RobloxModelScanner.WcfServiceHost</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Configuration.Install" />
+    <Reference Include="System.ServiceProcess" />
+    <ProjectReference Include="..\Roblox.Wcf\Roblox.Wcf.csproj" />
+  </ItemGroup>
+</Project>

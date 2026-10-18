@@ -1,0 +1,321 @@
+# =============================================================================
+# RMS DEPLOYER — SERVICES
+# =============================================================================
+# What to run once everything is built, and how each platform should run it.
+#
+# This file is a declaration, not a script. The deployer expands every value
+# below once against the machine it is running on and writes the result as a
+# single plan file, artifacts/services/services.ini. RMS.ServiceInstaller reads
+# that plan and makes the machine match it: Windows service entries through the
+# service control manager, IIS sites through appcmd, systemd units on Linux,
+# launchd property lists on macOS. Nothing in this file is platform-specific
+# syntax, so the same manifest describes a deployment on all three.
+#
+# A section is one service. The keys are:
+#
+#   name         Identifier used for the service, the systemd unit, the launchd
+#                label and the log directory. Defaults to the section name.
+#   description  Shown by the supervisor, by `systemctl status` and on the
+#                DevOps page.
+#   executable   The program to start. Use %ROOT% for the repository root so the
+#                manifest does not depend on where it is checked out.
+#   arguments    Command line, SEMICOLON separated. Semicolons rather than spaces
+#                because a path in a deployment can contain a space, and a
+#                space-separated list cannot survive that. Each entry is written
+#                to the plan as its own key, so no consumer splits a command line
+#                and no argument is ever re-split by a shell.
+#   working_dir  Working directory. Defaults to %ROOT%.
+#   environment  Semicolon separated KEY=VALUE pairs. Semicolons rather than
+#                spaces for the same reason as arguments: the values are paths
+#                and URLs.
+#   restart      always (the default), on-failure or never. Read by the
+#                supervisor, which is what restarts a service; the platform's own
+#                manager only restarts the supervisor itself.
+#   restart_delay      Seconds before the first restart. Defaults to 5.
+#   max_restart_delay  Ceiling the delay doubles up to. Defaults to 60.
+#   stop_timeout       Seconds between a stop request and a kill. Defaults to 30.
+#   shutdown_line      Text written to the service's standard input to ask it to
+#                stop. Unset by default, in which case the supervisor goes
+#                straight to the termination sequence. A Windows service has no
+#                console to receive a control event and a POSIX signal cannot be
+#                observed by .NET application code, so a line on standard input
+#                is the one channel that works identically on all three
+#                platforms -- but only a program that reads it benefits.
+#   platforms    Space or comma separated list. Absent means all of them.
+#   website      Set when the entry is an IIS web site on Windows rather than a
+#                process, and names the directory to serve. The installer hands
+#                the entry to IIS; there is no process for the supervisor to own.
+#                On Linux and macOS the same directory is served by the xsp entry
+#                that follows it, which is an ordinary process.
+#   port         TCP port for a web site entry.
+#   user         Account to run as, where the platform allows choosing one.
+#
+# Any key may be written with a platform prefix -- windows.executable,
+# linux.arguments, macos.working_dir -- to override it for one platform only.
+# The executables below use it because `dotnet publish` names the apphost with a
+# .exe suffix on Windows and without one elsewhere.
+#
+# SECRETS ARE NOT WRITTEN HERE
+#   A service that authenticates its callers reads its credential from a file,
+#   named by one of the *_TOKEN_FILE variables below. This deployer never creates
+#   such a file and never writes a secret into one: an operator creates it before
+#   the service is started, owned by the account the service runs as, mode 0600.
+#
+#   The variable naming the file is not itself a secret; the file is. Until the
+#   file exists the service's protected surface is disabled, which is the safe
+#   direction to fail in: an unconfigured deployment exposes nothing, and reports
+#   that it has nothing configured rather than serving callers it cannot identify.
+#
+#   The file holds the value and nothing else. No quotes, no trailing comment, no
+#   label: the reader takes the file's contents, trimmed of surrounding
+#   whitespace, as the credential itself. A comment inside the file becomes part
+#   of the secret and the comparison then fails for a reason that is invisible in
+#   the log.
+#
+#   Generate it the way a secret is generated, rather than inventing one:
+#     openssl rand -base64 48     (Linux, macOS, and Git Bash on Windows)
+#   Every one of these surfaces refuses a credential shorter than 32 characters
+#   rather than accepting a weak one, so a short value presents as a surface that
+#   is still disabled.
+#
+# BINDING
+#   Every service binds loopback. Nothing here listens on a public interface:
+#   the sites and the API are reached through the reverse proxy, which runs on
+#   the same host and is the only thing exposed. The indexer additionally
+#   requires a token and a peer on the allow list.
+#
+# DOTNET_ROOT IS NOT WRITTEN HERE
+#   A published .NET program finds its runtime through DOTNET_ROOT when the
+#   runtime was installed by this deployer, because such an installation is not
+#   registered with the operating system. The deployer knows which dotnet it
+#   resolved and writes that value into every service's environment itself, so
+#   the manifest does not have to guess -- and does not become wrong on a machine
+#   that already had a system-wide SDK.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# The scanner: sole writer of the JSON catalogue.
+#
+# It sweeps Roblox, records what it finds, and keeps the payloads of the models
+# that scored. Everything else in the stack reads what it writes: the indexer
+# reads the catalogue, the API reads the index, the sites read the API. Run it
+# before the indexer's first pass, or the index is built from an empty file.
+#
+# It needs a Roblox session cookie, which is a credential no deployment can
+# supply. A published scanner ships an environment template beside the program;
+# the operator copies it to .env in this directory and fills it in. Until that
+# file exists the scanner still runs, discovers what it can and reports in its
+# log that it cannot fetch payloads -- a visible failure rather than a silent
+# one.
+#
+# Windows only: the scanner is the one program in the stack with a
+# platform-specific target framework, because it uses a desktop notification of
+# a matched model and a tray icon as its interactive stop control.
+# -----------------------------------------------------------------------------
+
+[scanner]
+name         = rms-scanner
+description  = RMS catalogue scanner (sole writer of the JSON catalogue)
+working_dir  = %ROOT%/artifacts/scanner
+windows.executable = %ROOT%/artifacts/scanner/RobloxModelScanner.exe
+environment  = CATALOGUE_PATH=%ROOT%/artifacts/data/models.json; MODEL_DIRECTORY=%ROOT%/artifacts/data/models; CONTROL_PATH=%ROOT%/artifacts/data/control.json
+platforms    = windows
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The indexer: sole writer of the catalogue index.
+#
+# It is deliberately the only process that opens the SQLite file for writing, so
+# readers can never contend with a migration and a request can never corrupt the
+# index. Run it first; the API tolerates an absent index and reports it.
+# -----------------------------------------------------------------------------
+
+[indexer]
+name         = rms-indexer
+description  = RMS catalogue indexer (sole writer of the SQLite index)
+working_dir  = %ROOT%/artifacts/indexer
+windows.executable = %ROOT%/artifacts/indexer/Scanner.Indexer.exe
+executable   = %ROOT%/artifacts/indexer/Scanner.Indexer
+environment  = SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; SCANNER_MODELS_PATH=%ROOT%/artifacts/data/models.json; SCANNER_INDEXER_TOKEN_FILE=%ROOT%/artifacts/credentials/indexer.token
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The API: read-only consumer of the index.
+# -----------------------------------------------------------------------------
+
+[api]
+name         = rms-api
+description  = RMS read-only HTTP API
+working_dir  = %ROOT%/artifacts/api
+windows.executable = %ROOT%/artifacts/api/Scanner.MicroApi.exe
+executable   = %ROOT%/artifacts/api/Scanner.MicroApi
+
+# The address here is the one the proxy in front of this deployment reaches the
+# API on, not a free choice. The public name for the API is routed to the
+# loopback port below, so an API listening anywhere else answers nothing however
+# healthy it is -- and the port it used to name, 5199, was a port this service
+# was never told to bind: ASPNETCORE_URLS was absent, so Kestrel fell back to
+# its own default of 5000, which is what the proxy was pointed at.
+#
+# `localhost` rather than `127.0.0.1`, because that is the spelling that binds
+# both loopback addresses. A connector asking for `localhost` resolves it to the
+# IPv6 address first, and an API bound to the IPv4 address alone refuses every
+# one of those requests.
+#
+# The `SCANNER_API_BASE_URL` this line used to carry is gone rather than
+# corrected: nothing in this solution reads it, and a variable that looks like
+# an address but decides nothing is worse than no variable at all.
+#
+# The Roblox session cookie is named the way every other credential here is, by
+# the file that holds it. It used to be readable only from an environment value,
+# which is the one place the note above says a secret does not go, so a deployment
+# that followed this manifest had no way to give the API its cookie and every
+# download answered 502 while the catalogue served normally. The scanner's copy of
+# the same cookie lives in the .env file beside it, because the scanner reads its
+# settings from that file and cannot be told one any other way.
+environment  = ASPNETCORE_URLS=http://localhost:5000; SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; SCANNER_API_KEY_FILE=%ROOT%/artifacts/credentials/api-key; ROBLOX_COOKIE_FILE=%ROOT%/artifacts/credentials/roblox-cookie
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The DevOps service: deployments, farms, servers and jobs.
+# -----------------------------------------------------------------------------
+
+[devops-service]
+name         = rms-devops
+description  = RMS DevOps service
+working_dir  = %ROOT%/artifacts/devops-service
+windows.executable = %ROOT%/artifacts/devops-service/RMS.Devops.Service.exe
+executable   = %ROOT%/artifacts/devops-service/RMS.Devops.Service
+environment  = ASPNETCORE_URLS=http://127.0.0.1:5201; RMS_DEVOPS_PLAN_FILE=%ROOT%/artifacts/services/services.ini; SCANNER_INDEX_PATH=%ROOT%/artifacts/data/scanner-index.db; RMS_DEVOPS_TOKEN_FILE=%ROOT%/artifacts/credentials/devops.token
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The Configuration service: a console over the deployer manifests.
+#
+# It reads the same three manifests this deployer reads, and the plan file this
+# deployer writes, so an operator can see and edit what a deployment is made of
+# without opening a text editor on a server. The root is declared rather than
+# inferred so that a relative path in a manifest resolves the same way here as
+# it does in the deployer; the manifest directory is the one beside this file.
+#
+# The token file is named below, but this deployer does not write a secret into
+# it: it writes a template beside it and an operator fills it in. Until the file
+# exists the service refuses every call, which is the safe direction to fail in,
+# because a call can change what the next deployment does.
+# -----------------------------------------------------------------------------
+
+[configuration-service]
+name         = rms-configuration
+description  = RMS Configuration service
+working_dir  = %ROOT%/artifacts/configuration-service
+windows.executable = %ROOT%/artifacts/configuration-service/RMS.Configuration.Service.exe
+executable   = %ROOT%/artifacts/configuration-service/RMS.Configuration.Service
+environment  = ASPNETCORE_URLS=http://127.0.0.1:5202; RMS_CONFIGURATION_ROOT=%ROOT%; RMS_CONFIGURATION_MANIFEST_DIR=%ROOT%/deploy; RMS_CONFIGURATION_PLAN_FILE=%ROOT%/artifacts/services/services.ini; RMS_CONFIGURATION_TOKEN_FILE=%ROOT%/artifacts/credentials/configuration.token
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The documentation service, which replaces Confluence.
+#
+# The same shape as the Configuration service: it reads the documents from disk
+# and serves them, holds nothing in memory between requests, and is reached
+# through the same reverse proxy. The documents live in the repository's own
+# docs directory, so a page and the file it was written from cannot drift apart
+# across machines -- a deployment copies the directory, it does not export a
+# database.
+# -----------------------------------------------------------------------------
+
+[docs-service]
+name         = rms-docs
+description  = RMS documentation service
+working_dir  = %ROOT%/artifacts/docs-service
+windows.executable = %ROOT%/artifacts/docs-service/RMS.Docs.Service.exe
+executable   = %ROOT%/artifacts/docs-service/RMS.Docs.Service
+environment  = ASPNETCORE_URLS=http://127.0.0.1:5203; RMS_DOCS_ROOT=%ROOT%; RMS_DOCS_DOCUMENT_DIR=%ROOT%/docs; RMS_DOCS_TOKEN_FILE=%ROOT%/artifacts/credentials/docs.token
+restart      = always
+
+# -----------------------------------------------------------------------------
+# The Web Forms sites.
+#
+# On Windows each of these is an IIS site. The executable keys are empty on
+# purpose: there is no process to start, because IIS owns the lifetime, which is
+# why these entries are marked for Windows only. On Linux and macOS the site is a
+# directory that Mono's xsp host serves, so each one has an xsp entry instead,
+# started and supervised in the same way as any other service -- which is what
+# gives a web site the same run logs as a service.
+# -----------------------------------------------------------------------------
+
+[webforms-site]
+name         = rms-site
+description  = RMS analytics site
+website      = %ROOT%/artifacts/site
+
+# 30449 and not the 8081 this used to be. The public name for this site is
+# routed to loopback 30449, so an IIS site bound anywhere else answers the proxy
+# with a refused connection and the name reports a bad gateway.
+port         = 30449
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key
+platforms    = windows
+
+[xsp-webforms]
+name         = rms-site-xsp
+description  = RMS analytics site, served by Mono xsp
+working_dir  = %ROOT%/artifacts/site
+executable   = xsp4
+arguments    = --port; 30449; --root; %ROOT%/artifacts/site; --nonstop
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key
+platforms    = linux macos
+restart      = always
+
+[devops-site]
+name         = rms-devops-site
+description  = RMS DevOps site
+website      = %ROOT%/artifacts/devops-site
+port         = 8082
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token
+platforms    = windows
+
+[xsp-devops-site]
+name         = rms-devops-site-xsp
+description  = RMS DevOps site, served by Mono xsp
+working_dir  = %ROOT%/artifacts/devops-site
+executable   = xsp4
+arguments    = --port; 8082; --root; %ROOT%/artifacts/devops-site; --nonstop
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token
+platforms    = linux macos
+restart      = always
+
+[configuration-site]
+name         = rms-configuration-site
+description  = RMS Configuration site
+website      = %ROOT%/artifacts/configuration-site
+port         = 8083
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token
+platforms    = windows
+
+[xsp-configuration-site]
+name         = rms-configuration-site-xsp
+description  = RMS Configuration site, served by Mono xsp
+working_dir  = %ROOT%/artifacts/configuration-site
+executable   = xsp4
+arguments    = --port; 8083; --root; %ROOT%/artifacts/configuration-site; --nonstop
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token
+platforms    = linux macos
+restart      = always
+
+[docs-site]
+name         = rms-docs-site
+description  = RMS documentation site
+website      = %ROOT%/artifacts/docs-site
+port         = 8084
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token
+platforms    = windows
+
+[xsp-docs-site]
+name         = rms-docs-site-xsp
+description  = RMS documentation site, served by Mono xsp
+working_dir  = %ROOT%/artifacts/docs-site
+executable   = xsp4
+arguments    = --port; 8084; --root; %ROOT%/artifacts/docs-site; --nonstop
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token
+platforms    = linux macos
+restart      = always

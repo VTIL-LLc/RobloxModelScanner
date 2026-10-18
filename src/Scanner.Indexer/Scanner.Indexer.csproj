@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a
+      doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <RootNamespace>Scanner.Indexer</RootNamespace>
+    <AssemblyName>Scanner.Indexer</AssemblyName>
+    <!--
+      The control plane is an internal surface, so the service is deliberately not presented as a
+      web application to any listener other than the loopback address configured at start-up.
+    -->
+    <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      SQLite is the migration target. This project is the only writer of the index database, which
+      is what allows every other component to open it read-only.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The detection assembly is referenced so that the tags recovered from a catalogue row are
+      attributed to the same rule categories and severities the scanner evaluates.
+    -->
+    <ProjectReference Include="..\Features.AssetAnalysis\Features.AssetAnalysis.csproj" />
+
+    <!--
+      The index schema is shared with the API, which reads the database this project writes. Both
+      reference the same definition of the tables, the bookkeeping keys and the schema version, so
+      the two processes cannot disagree about what an index looks like.
+    -->
+    <ProjectReference Include="..\Scanner.IndexContract\Scanner.IndexContract.csproj" />
+  </ItemGroup>
+
+</Project>

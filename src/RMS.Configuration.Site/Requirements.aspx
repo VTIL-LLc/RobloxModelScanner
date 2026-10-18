@@ -1,0 +1,1 @@
+<%@ Page Language="C#" AutoEventWireup="false" CodeBehind="Requirements.aspx.cs" Inherits="RMS.Configuration.Site.Requirements" EnableSessionState="true" EnableViewState="false" ValidateRequest="true" %>

@@ -1,0 +1,259 @@
+# =============================================================================
+# RMS DEPLOYER — BUILD PLAN
+# =============================================================================
+# The ordered list of things to build, and how to build each one.
+#
+# A section is one build step. The keys are:
+#
+#   kind     dotnet-solution  Restore and build a solution with the .NET SDK.
+#            dotnet-project   Restore and build a single project with the SDK.
+#            framework        Build with the MSBuild that compiles legacy-style
+#                             .NET Framework projects: Visual Studio's on
+#                             Windows, Mono's on Linux and macOS.
+#            node-package     npm install followed by npm run build, for the
+#                             package that produces the site bundles.
+#            shell            Run the command verbatim. The escape hatch, used
+#                             only where the other kinds do not fit.
+#
+#            WHICH KIND A .NET FRAMEWORK PROJECT NEEDS
+#              It is decided by how the project file is written, not by the
+#              framework it targets. A project whose first line is
+#              <Project Sdk="Microsoft.NET.Sdk"> is SDK-style even when it
+#              targets net48, and the .NET SDK builds it, so it uses a dotnet
+#              kind. A project that opens with <Project ToolsVersion=...> and
+#              lists its own Compile items is legacy-style, and only an MSBuild
+#              that carries the .NET Framework targets can build it -- the SDK's
+#              MSBuild cannot, which is why the Web Forms site uses the
+#              framework kind. Choosing by the target framework instead of by
+#              the project format is the mistake that makes a plan fail on a
+#              project which looks, from its target only, like the one above it.
+#   path     The solution, project, or package directory, relative to the root.
+#            For the shell kind, the command itself.
+#   config   Build configuration. Defaults to Release.
+#   platforms  Space or comma separated list of the platforms the step applies
+#            to. Absent means all of them.
+#   note     Free text, shown by `rmsdeploy build`.
+#
+# Steps run in the order they appear here. A step whose source does not exist
+# yet is reported as "not present yet" and skipped rather than failing, so this
+# file can describe the finished stack while parts of it are still being
+# written.
+#
+# WHY THE .NET FRAMEWORK PROJECTS ARE SEPARATE
+#   The root solution mixes .NET 8 projects with .NET Framework ones. No single
+#   MSBuild can build both: the SDK's MSBuild cannot target .NET Framework Web
+#   Forms, and Visual Studio's MSBuild does not drive the newer SDK-style
+#   projects the same way. Building project by project, with an explicit kind
+#   per project, is what makes one plan work on all three platforms instead of
+#   needing a different solution file per host.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Shared libraries
+#
+# These come first because everything else references them, and `dotnet build`
+# resolves project references on its own, so an early failure here is reported
+# once rather than once per dependent project.
+# -----------------------------------------------------------------------------
+
+[features-assetanalysis]
+kind      = dotnet-project
+path      = src/Features.AssetAnalysis/Features.AssetAnalysis.csproj
+note      = detection rules and the analyzer
+
+[features-assetdelivery]
+kind      = dotnet-project
+path      = src/Features.AssetDelivery/Features.AssetDelivery.csproj
+note      = authenticated asset resolution
+
+# -----------------------------------------------------------------------------
+# Services
+#
+# The indexer is the only writer of the SQLite index; the API reads it. Both are
+# plain .NET 8 and therefore run on every platform this deployer supports. The
+# schema both of them compile against is a library of its own, so the version the
+# writer stamps into the database and the version the reader demands cannot drift
+# apart without one of them failing to build.
+# -----------------------------------------------------------------------------
+
+[scanner-indexcontract]
+kind      = dotnet-project
+path      = src/Scanner.IndexContract/Scanner.IndexContract.csproj
+note      = the index schema both processes compile against
+
+[scanner-indexer]
+kind      = dotnet-project
+path      = src/Scanner.Indexer/Scanner.Indexer.csproj
+note      = catalogue to SQLite migration
+
+[scanner-microapi]
+kind      = dotnet-project
+path      = src/Scanner.MicroApi/Scanner.MicroApi.csproj
+note      = read only HTTP API
+
+# -----------------------------------------------------------------------------
+# Windows desktop
+#
+# These target net8.0-windows because they use Windows Forms or the tray. They
+# are the only projects in the stack that genuinely cannot run elsewhere, and
+# they are the scanner's operator-facing tools rather than part of a server
+# deployment.
+# -----------------------------------------------------------------------------
+
+[features-tray]
+kind      = dotnet-project
+path      = src/Features.Tray/Features.Tray.csproj
+platforms = windows
+note      = tray presence indicator
+
+[scanner-core]
+kind      = dotnet-project
+path      = src/RobloxModelScanner/RobloxModelScanner.csproj
+platforms = windows
+note      = the scanner itself
+
+# -----------------------------------------------------------------------------
+# Web Forms sites
+#
+# The sites target .NET Framework 4.8 and are served by IIS on Windows. On Linux
+# and macOS the same projects are built by Mono's MSBuild and served by xsp, which
+# is why Mono is a requirement on those two platforms. Keep this step after the
+# bundle step below, so the compiled site picks up freshly built assets.
+# -----------------------------------------------------------------------------
+
+[site-assets]
+kind      = node-package
+path      = src/Scanner.WebForms/Client
+note      = webpack bundles, no source maps
+
+# The console client builds the same file into each of the three consoles. It
+# runs here, before the three sites are compiled, for the same reason the step
+# above runs before the analytics site: the compiled site picks up the bundle
+# that is already on disk.
+[console-assets]
+kind      = node-package
+path      = src/RMS.Site.Common/Client
+note      = webpack bundles for the three consoles, no source maps
+
+[scanner-webforms]
+kind      = framework
+path      = src/Scanner.WebForms/Scanner.WebForms.csproj
+note      = analytics site and admin pages
+
+[rms-devops-site]
+kind      = framework
+path      = src/RMS.Devops.Site/RMS.Devops.Site.csproj
+note      = deployments, farms, servers, jobs
+
+[rms-configuration-site]
+kind      = framework
+path      = src/RMS.Configuration.Site/RMS.Configuration.Site.csproj
+note      = configuration console
+
+[rms-docs-site]
+kind      = framework
+path      = src/RMS.Docs.Site/RMS.Docs.Site.csproj
+note      = documentation, replaces Confluence
+
+# -----------------------------------------------------------------------------
+# Legacy WCF surface
+#
+# WCF is a Windows runtime component, so these are Windows only. Nothing in the
+# stack points at them any more: the scanner stopped referencing Roblox.Wcf when
+# its dead .NET Framework links were removed, and the service installer that used
+# to live on top of them has been replaced by RMS.ServiceInstaller below. They
+# are still declared here so that they keep compiling rather than rotting
+# untested in the tree, and so that removing them is a deliberate act with a
+# failing build behind it rather than something discovered months later.
+#
+# Both are SDK-style projects targeting net48, so the .NET SDK builds them and
+# they are dotnet-project steps. The binding constraint is not the build but the
+# .NET Framework itself: running the output needs Windows, and building it
+# without Visual Studio needs the net48 reference assemblies, which the SDK does
+# not carry. Neither is true of the projects that replace them.
+# -----------------------------------------------------------------------------
+
+[wcf-contracts]
+kind      = dotnet-project
+path      = src/Roblox.Wcf/Roblox.Wcf.csproj
+platforms = windows
+note      = superseded by RMS.ServiceHost
+
+[wcf-servicehost]
+kind      = dotnet-project
+path      = src/Scanner.WcfServiceHost/Scanner.WcfServiceHost.csproj
+platforms = windows
+note      = superseded by RMS.ServiceHost
+
+# The sc.exe wrapper the WCF host used to install itself with. It is no longer
+# referenced by anything -- the scanner stopped referencing it when the dead
+# .NET Framework links were removed -- but it is still in the tree and still
+# builds, so it is declared here rather than left to rot untested.
+[service-installers]
+kind      = dotnet-project
+path      = src/ServiceInstallers/ServiceInstallers.csproj
+platforms = windows
+note      = superseded by RMS.ServiceInstaller
+
+# -----------------------------------------------------------------------------
+# Service supervision
+#
+# The replacement for the WCF-based installer. The installer registers and
+# controls services; the host supervises a child process and captures its output.
+# Both are .NET 8, so they run on every platform this deployer supports -- which
+# is the point of them: the Windows service control manager, systemd and launchd
+# are all configured by one program that is compiled and exercised everywhere.
+#
+# They share a model project, which is built first because it is what the two
+# read the deployer's plan through. The deployer itself does not link against
+# any of them: it writes a plan file and runs the installer, so the C program
+# needs no .NET assembly at all.
+# -----------------------------------------------------------------------------
+
+[rms-servicemodel]
+kind      = dotnet-project
+path      = src/RMS.ServiceModel/RMS.ServiceModel.csproj
+note      = the plan file, its reader and its writer
+
+[rms-servicehost]
+kind      = dotnet-project
+path      = src/RMS.ServiceHost/RMS.ServiceHost.csproj
+note      = supervised process host
+
+[rms-serviceinstaller]
+kind      = dotnet-project
+path      = src/RMS.ServiceInstaller/RMS.ServiceInstaller.csproj
+note      = service control manager registration
+
+# -----------------------------------------------------------------------------
+# Consoles
+#
+# The three sites' services, each one the HTTP surface its console reads. Two of
+# them read the deployer's plan through RMS.ServiceModel, which is why this block
+# comes after the one above rather than beside the sites it belongs with.
+#
+# The .NET SDK builds a project's references on its own, so a step placed before
+# its dependency would still compile; it would also report a failure against
+# whichever project it happened to reach first rather than against the project
+# that caused it. Declaring the order makes this file read top-down as the
+# dependency graph, which is the only reading it gets when it is being debugged.
+#
+# The documentation service references nothing. Its input is a directory of files
+# and its output is those files, so there is no shared type for it and its console
+# to agree about -- the agreement is the directory, and that is the point of it.
+# -----------------------------------------------------------------------------
+
+[rms-devops-service]
+kind      = dotnet-project
+path      = src/RMS.Devops.Service/RMS.Devops.Service.csproj
+note      = operations console service
+
+[rms-configuration-service]
+kind      = dotnet-project
+path      = src/RMS.Configuration.Service/RMS.Configuration.Service.csproj
+note      = configuration console service
+
+[rms-docs-service]
+kind      = dotnet-project
+path      = src/RMS.Docs.Service/RMS.Docs.Service.csproj
+note      = documentation console service

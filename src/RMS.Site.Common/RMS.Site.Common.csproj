@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{7C3A6E1B-6E4F-4E1C-9E4B-2E2B0C4A7F01}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>RMS.Site.Common</RootNamespace>
+    <AssemblyName>RMS.Site.Common</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <!--
+      Documentation is generated so that every public and protected member is forced to carry a doc
+      comment, matching the platform C# conventions. The warning is raised rather than hidden, because
+      a member without a comment is a member nobody has had to justify.
+    -->
+    <DocumentationFile>bin\RMS.Site.Common.xml</DocumentationFile>
+    <NoWarn>1591</NoWarn>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      The account store, the audit trail and the site's notices live in one SQLite file per site under
+      App_Data, which IIS does not serve. The provider is referenced rather than the whole data stack:
+      nothing here needs an object-relational mapper, and an entity framework would be a dependency taken
+      on for the sake of four tables.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Enums\LoginOutcome.cs" />
+    <Compile Include="Implementation\AccountStore.cs" />
+    <Compile Include="Implementation\AdminConsolePage.cs" />
+    <Compile Include="Implementation\AnonymousPage.cs" />
+    <Compile Include="Implementation\CsrfToken.cs" />
+    <Compile Include="Implementation\Html.cs" />
+    <Compile Include="Implementation\NativeSqlite.cs" />
+    <Compile Include="Implementation\PasswordHasher.cs" />
+    <Compile Include="Implementation\ServiceClient.cs" />
+    <Compile Include="Implementation\ServicePage.cs" />
+    <Compile Include="Implementation\ServiceProxyHandler.cs" />
+    <Compile Include="Implementation\SessionReader.cs" />
+    <Compile Include="Implementation\SiteDiagnostics.cs" />
+    <Compile Include="Implementation\SitePage.cs" />
+    <Compile Include="Interfaces\IAccountStore.cs" />
+    <Compile Include="Models\SiteAccount.cs" />
+    <Compile Include="Models\AuditEntry.cs" />
+    <Compile Include="Models\LoginResult.cs" />
+    <Compile Include="Models\ServiceResult.cs" />
+    <Compile Include="Models\SiteNotice.cs" />
+    <Compile Include="Models\UserSession.cs" />
+    <Compile Include="Options\SiteOptions.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

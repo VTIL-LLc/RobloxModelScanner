@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Documentation is generated for this project so that every public and protected
+      member is forced to carry a doc comment, matching the platform C# conventions.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Keep the request pipeline lean: no IIS integration is required for this host. -->
+    <RootNamespace>Scanner.MicroApi</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Microsoft.Data.Sqlite backs the local read model. The scanner's JSON catalogue is
+      indexed into SQLite once per change so that catalogue searches and analytics run as
+      indexed SQL statements instead of re-parsing a multi-megabyte document per request.
+    -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The detection assembly is referenced so that the rule catalogue (tag, category,
+      severity, score and purpose) published by /api/rules is the exact same source of
+      truth the scanner uses when it analyzes assets.
+    -->
+    <ProjectReference Include="..\Features.AssetAnalysis\Features.AssetAnalysis.csproj" />
+
+    <!--
+      The asset delivery assembly resolves the signed content location for an asset. It is
+      shared with the scanner so both processes speak to the same documented Roblox endpoint
+      with the same validation applied to the response.
+    -->
+    <ProjectReference Include="..\Features.AssetDelivery\Features.AssetDelivery.csproj" />
+
+    <!--
+      The index schema names the version this API is able to read and the bookkeeping keys it
+      consults. It is the same definition the indexing service writes from, so the two processes
+      cannot disagree about what an index is and a mismatch is detected rather than misread.
+    -->
+    <ProjectReference Include="..\Scanner.IndexContract\Scanner.IndexContract.csproj" />
+  </ItemGroup>
+
+</Project>
