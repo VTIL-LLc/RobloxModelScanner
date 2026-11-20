@@ -36,11 +36,47 @@ namespace Scanner.WebForms.Infrastructure
         /// The largest page size the site will ask for.
         /// </summary>
         /// <remarks>
-        /// The API caps this itself at five hundred. This is the smaller, deliberate limit: a page of five
-        /// hundred rows is a page nobody reads, and asking for one would let a link with a hand-edited page
-        /// size cost the scanner's index more work than the reader gets value from.
+        /// The API caps this at the same number, so this is not a second opinion about the ceiling: it is the
+        /// site stating the same one, which is what keeps a hand-edited address from asking for a page the API
+        /// would answer with a different size than the pager then divides by. Five hundred is the largest page
+        /// the reader may ask for; the rows menu offers nothing beyond it.
         /// </remarks>
-        public const int MaximumPageSize = 200;
+        public const int MaximumPageSize = 500;
+
+        /// <summary>
+        /// The order the catalogue is shown in when the address names none.
+        /// </summary>
+        /// <remarks>
+        /// The row the sweep discovered most recently comes first, because that is the question a visitor arrives
+        /// with: what has the scanner added lately. It is a key into <see cref="Orders"/> rather than a column name
+        /// so that the menu, the address and the default cannot name three different orders.
+        /// </remarks>
+        public const string DefaultOrderKey = "recent";
+
+        /// <summary>
+        /// The orders the catalogue may be shown in.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// One list, read by the menu that offers an order, by the reader that resolves the address back into a
+        /// sort field, and by the default. Adding an order is one entry here; a menu built separately from the
+        /// resolver would be a menu offering keys nothing answers.
+        /// </para>
+        /// <para>
+        /// The keys are short because they are written into addresses a person reads and sends on. The labels are
+        /// sentences because a menu is read rather than parsed.
+        /// </para>
+        /// </remarks>
+        public static readonly IReadOnlyList<OrderChoice> Orders = new OrderChoice[]
+        {
+            new OrderChoice("recent", "Recently added", "Found", true),
+            new OrderChoice("earliest", "Earliest added first", "Found", false),
+            new OrderChoice("newest", "Newest asset first", "Model", true),
+            new OrderChoice("score", "Highest score first", "Score", true),
+            new OrderChoice("name", "Name, A to Z", "Name", false),
+            new OrderChoice("creator", "Creator, A to Z", "CreatorName", false),
+        };
+
 
         /// <summary>
         /// Gets or sets the free-text term the catalogue is searched for.
@@ -84,6 +120,32 @@ namespace Scanner.WebForms.Infrastructure
         /// Gets or sets a value indicating whether the order runs from highest to lowest.
         /// </summary>
         public bool Descending { get; set; }
+
+        /// <summary>
+        /// Gets the key of the order currently in force.
+        /// </summary>
+        /// <remarks>
+        /// The menu marks the option whose key this is, and an address names an order by it. A sort field and
+        /// direction that no entry of <see cref="Orders"/> describes falls back to the default rather than
+        /// producing an address with no option selected, which would be a menu that shows the wrong order.
+        /// </remarks>
+        public string OrderKey
+        {
+            get
+            {
+                foreach (OrderChoice choice in Orders)
+                {
+                    if (string.Equals(choice.SortBy, SortBy, StringComparison.OrdinalIgnoreCase)
+                        && choice.Descending == Descending)
+                    {
+                        return choice.Key;
+                    }
+                }
+
+                return DefaultOrderKey;
+            }
+        }
+
 
         /// <summary>
         /// The catalogue columns a caller may order by, as the API names them.
@@ -138,11 +200,25 @@ namespace Scanner.WebForms.Infrastructure
             filter.HasDetections = Flag(query["detections"]);
             filter.Page = Whole(query["page"], 1, 1, 1_000_000);
             filter.PageSize = Whole(query["size"], DefaultPageSize, 1, MaximumPageSize);
-            filter.Descending = !string.Equals(Trim(query["dir"], 8), "asc", StringComparison.OrdinalIgnoreCase);
 
-            string sort = Trim(query["sort"], 32);
+            // The menu's key first, and the older pair of parameters only when no key is named. Both reach the
+            // same two fields, and the key wins because it is the one the page itself writes: a link sent before
+            // the menu existed still carries the pair, and still lands on the order it asked for.
+            OrderChoice order = FindOrder(Trim(query["order"], 16));
 
-            if (sort.Length > 0 && IsSortable(sort)) filter.SortBy = sort;
+            if (order != null)
+            {
+                filter.SortBy = order.SortBy;
+                filter.Descending = order.Descending;
+            }
+            else
+            {
+                filter.Descending = !string.Equals(Trim(query["dir"], 8), "asc", StringComparison.OrdinalIgnoreCase);
+
+                string sort = Trim(query["sort"], 32);
+
+                if (sort.Length > 0 && IsSortable(sort)) filter.SortBy = sort;
+            }
 
             return filter;
         }
@@ -217,6 +293,69 @@ namespace Scanner.WebForms.Infrastructure
         }
 
         /// <summary>
+        /// Resolves an order key back into the entry that carries it.
+        /// </summary>
+        /// <param name="key">The key out of an address.</param>
+        /// <returns>The entry, or <see langword="null"/> when no entry carries that key.</returns>
+        private static OrderChoice FindOrder(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return null;
+
+            foreach (OrderChoice choice in Orders)
+            {
+                if (string.Equals(choice.Key, key, StringComparison.OrdinalIgnoreCase)) return choice;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// One entry of the catalogue's order menu.
+        /// </summary>
+        /// <remarks>
+        /// The key is what an address carries, the label is what the menu shows, and the sort field and direction
+        /// are what the API is asked for. Keeping all four together is what makes a new order one entry here
+        /// rather than an entry in the menu plus a branch in the reader plus a line in the address builder.
+        /// </remarks>
+        public sealed class OrderChoice
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="OrderChoice"/> class.
+            /// </summary>
+            /// <param name="key">The short name the address carries.</param>
+            /// <param name="label">The text the menu shows.</param>
+            /// <param name="sortBy">The catalogue column the API orders by.</param>
+            /// <param name="descending">Whether the order runs from highest to lowest.</param>
+            public OrderChoice(string key, string label, string sortBy, bool descending)
+            {
+                Key = key;
+                Label = label;
+                SortBy = sortBy;
+                Descending = descending;
+            }
+
+            /// <summary>
+            /// Gets the short name the address carries.
+            /// </summary>
+            public string Key { get; }
+
+            /// <summary>
+            /// Gets the text the menu shows.
+            /// </summary>
+            public string Label { get; }
+
+            /// <summary>
+            /// Gets the catalogue column the API orders by.
+            /// </summary>
+            public string SortBy { get; }
+
+            /// <summary>
+            /// Gets a value indicating whether the order runs from highest to lowest.
+            /// </summary>
+            public bool Descending { get; }
+        }
+
+        /// <summary>
         /// Builds the query the API is asked with.
         /// </summary>
         /// <returns>The pairs, encoded by the client rather than here.</returns>
@@ -287,8 +426,7 @@ namespace Scanner.WebForms.Infrastructure
             if (HasScripts.HasValue) pairs.Add(new KeyValuePair<string, string>("scripts", HasScripts.Value ? "1" : "0"));
             if (HasDetections.HasValue) pairs.Add(new KeyValuePair<string, string>("detections", HasDetections.Value ? "1" : "0"));
             if (!string.IsNullOrWhiteSpace(RuleTag)) pairs.Add(new KeyValuePair<string, string>("tag", RuleTag.Trim()));
-            if (!string.IsNullOrWhiteSpace(SortBy)) pairs.Add(new KeyValuePair<string, string>("sort", SortBy.Trim()));
-            if (!Descending) pairs.Add(new KeyValuePair<string, string>("dir", "asc"));
+            if (OrderKey != DefaultOrderKey) pairs.Add(new KeyValuePair<string, string>("order", OrderKey));
             if (PageSize != DefaultPageSize)
             {
                 pairs.Add(new KeyValuePair<string, string>("size", PageSize.ToString(CultureInfo.InvariantCulture)));

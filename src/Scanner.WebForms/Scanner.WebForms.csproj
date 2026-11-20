@@ -106,6 +106,10 @@
       <DependentUpon>Error.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
     </Compile>
+    <Compile Include="Explorer.aspx.cs">
+      <DependentUpon>Explorer.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
@@ -136,6 +140,7 @@
     <Content Include="Content\site.css" />
     <Content Include="Default.aspx" />
     <Content Include="Error.aspx" />
+    <Content Include="Explorer.aspx" />
     <Content Include="Global.asax" />
     <Content Include="Model.aspx" />
     <Content Include="Rules.aspx" />
@@ -150,6 +155,7 @@
     <None Include="Client\package.json" />
     <None Include="Client\webpack.config.js" />
     <None Include="Client\src\alerts.js" />
+    <None Include="Client\src\explorer.js" />
     <None Include="Client\src\index.js" />
     <None Include="Client\src\live.js" />
     <None Include="Client\src\sorting.js" />

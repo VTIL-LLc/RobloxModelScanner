@@ -1,0 +1,1165 @@
+/*
+  ================================================================================================
+  RMS MODEL SCANNER - THE CLASSES THE THEME DOES NOT CARRY
+  ================================================================================================
+
+  The stylesheet that does the heavy lifting is the theme the interface this replaces was built
+  from, and it is loaded first. What is here is only what the theme has no opinion about: the
+  handful of shapes this site adds.
+
+  Two rules apply to everything below.
+
+  The first is that nothing here is an inline style. The pages are served under a policy that
+  permits styles from this origin only, so an attribute written into the markup would be refused
+  and the feature it was describing would silently not work. A share bar is therefore one of
+  eleven classes rather than a width attribute, and a counter's colour is a class rather than a
+  border style.
+
+  The second is that nothing here sets a fixed width that a longer word could overflow. A model's
+  name, a creator's name and a rule label can all be arbitrarily long, and the fix for that is to
+  let them wrap, not to hide them.
+*/
+
+/* --------------------------------------------------------------------------------------------
+   Text and code
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  A quieter grey for the places a dash is more honest than a value. The theme's own .text-muted is
+  used in most places; this is the shorter name the renderers emit inside table cells, where the
+  class attribute is already carrying a column class as well.
+*/
+.muted {
+  color: #8b8b8b;
+}
+
+/*
+  Monospaced, for anything that is a value rather than a sentence: paths, identifiers, exit codes,
+  command lines. The theme's code font is not monospaced, and a path rendered in a proportional
+  font is a path somebody misreads a character out of.
+*/
+.code {
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 90%;
+}
+
+/*
+  For a value that may be longer than any window: a command line, a log line inside a table cell, a
+  long path. It breaks anywhere rather than running off the edge, which is the difference between a
+  value the reader can copy and a value they have to hunt for.
+*/
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Layout of the overview
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  The counters across the top. They are panels so that a reader looking for one number does not have
+  to read the others, and they are equal height because a row of panels of different heights reads
+  as a row with a mistake in it.
+*/
+.counter-panel {
+  min-height: 92px;
+  margin-bottom: 12px;
+}
+
+.counter-value {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.counter-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9a9a9a;
+}
+
+/*
+  The sentence under a counter's value, saying what the number counts. It is small and quiet because
+  a reader who already knows does not need it, and a reader who does not should be able to read it
+  without it competing with the value above it.
+*/
+.counter-note {
+  font-size: 11px;
+  line-height: 1.35;
+  margin-bottom: 0;
+}
+
+/*
+  A counter that means something is wrong is tinted; the rest are left alone. Tinting all six would
+  make the row a decoration, and the point of tinting one is that it is the only one tinted.
+*/
+.counter-danger {
+  border-left: 3px solid #d9534f;
+}
+
+.counter-warning {
+  border-left: 3px solid #f0ad4e;
+}
+
+.counter-success {
+  border-left: 3px solid #5cb85c;
+}
+
+.counter-info {
+  border-left: 3px solid #5bc0de;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  Numeric columns are right-aligned so that the digits line up and a magnitude is visible as a
+  column shape rather than having to be read. Time columns are marked as well as aligned, because
+  they hold a short phrase and a right-aligned phrase reads oddly.
+*/
+table td.col-number,
+table th.col-number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+table td.col-time,
+table th.col-time {
+  white-space: nowrap;
+}
+
+/*
+  The share column. The bar is drawn inside it at a fraction of the column's width, so the column
+  takes a fixed share of the table and the bars line up down the page instead of each one being
+  measured against a differently sized cell.
+*/
+table td.col-share,
+table th.col-share {
+  width: 22%;
+  min-width: 90px;
+}
+
+/*
+  The header of a sortable table. The whole cell is the control, and the cursor says so. The marker
+  is drawn by the script adding a class, so a header that is not sortable carries no marker.
+*/
+th .sortable-head {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+th.sorted-asc .sortable-head::after {
+  content: " \25B2";
+  font-size: 70%;
+  color: #8b8b8b;
+}
+
+th.sorted-desc .sortable-head::after {
+  content: " \25BC";
+  font-size: 70%;
+  color: #8b8b8b;
+}
+
+/* --------------------------------------------------------------------------------------------
+   The share bars under the catalogue's period table
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  A bar whose length is the share of the largest period. The eleven classes are the eleven tenths;
+  the element itself is a fixed-height block so that a share of zero still draws an empty track
+  rather than nothing, which is what makes the table's shape readable.
+*/
+.bar {
+  display: block;
+  height: 10px;
+  min-width: 40px;
+  background-color: #5bc0de;
+  border-radius: 2px;
+}
+
+.share-0 {
+  width: 2%;
+}
+
+.share-1 {
+  width: 10%;
+}
+
+.share-2 {
+  width: 20%;
+}
+
+.share-3 {
+  width: 30%;
+}
+
+.share-4 {
+  width: 40%;
+}
+
+.share-5 {
+  width: 50%;
+}
+
+.share-6 {
+  width: 60%;
+}
+
+.share-7 {
+  width: 70%;
+}
+
+.share-8 {
+  width: 80%;
+}
+
+.share-9 {
+  width: 90%;
+}
+
+.share-10 {
+  width: 100%;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Pagination
+   -------------------------------------------------------------------------------------------- */
+
+.pager-strip {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.pager-summary {
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Detail pages
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  The key and value block. The theme's form-group-sm already supplies the spacing; this removes the
+  margin the last row would otherwise leave at the bottom of the panel.
+*/
+.detail-facts .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.empty-note {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Live regions
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  A region is an element whose contents the script replaces with an answer from this site. It is
+  given a little room below it so that a refresh that grows the contents does not push the footer
+  into the text, and a soft fade while a request is open so that a reader who is watching knows the
+  page is working rather than stuck.
+
+  The fade is on opacity and not on display, so the region never leaves the layout. A region that
+  vanished for the length of a request would make the page jump, and the reader would lose the line
+  they were reading.
+*/
+.rms-live[data-busy="1"] {
+  opacity: 0.6;
+}
+
+/*
+  The note a region shows when it could not be refreshed. It is inserted at the top of the region by
+  the script, and it is deliberately the theme's own alert so that it reads as a message rather than
+  as part of the table it is sitting above.
+*/
+.refresh-note {
+  margin-bottom: 10px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Forms
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  The catalogue's filter. It is a normal form and submits normally; this only sets it apart from the
+  table beneath it, which has a header row that would otherwise sit directly under the last field.
+*/
+.filter-form {
+  border-bottom: 1px solid #333333;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+
+/*
+  The last field of the filter sits against the table, and the theme gives every form-group a margin
+  that would double the gap. Only the last one is trimmed, so the fields still keep their spacing
+  from each other.
+*/
+.filter-form > .form-group:last-child {
+  margin-bottom: 2px;
+}
+
+/*
+  A form that sits inside a table cell or beside another. The theme gives every form block layout,
+  which is right for a page of fields and wrong for a row of buttons.
+*/
+.inline-form {
+  display: inline-block;
+  margin: 0;
+}
+
+/*
+  One account's controls. The panel supplies the separation between accounts; this keeps the
+  enable and remove buttons on a line of their own rather than beside the save button, so that the
+  button nearest the cursor is the one the reader was aiming at.
+*/
+.account-form {
+  padding-bottom: 4px;
+}
+
+.account-form + .inline-form {
+  margin-right: 8px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Sign-in
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  The sign-in shell is narrow and centred. The form it wraps carries a password, and a password
+  field as wide as a monitor is one a passer-by can read from further away than they should.
+*/
+.signin-shell {
+  max-width: 420px;
+  margin-top: 8%;
+}
+
+.signin-form {
+  margin-top: 14px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------------------------- */
+
+.footer-note {
+  padding-top: 10px;
+  padding-bottom: 20px;
+  font-size: 12px;
+}
+
+/* --------------------------------------------------------------------------------------------
+   Explorer
+   -------------------------------------------------------------------------------------------- */
+
+/*
+  The explorer is drawn as a window rather than a page: a title bar, a filter, a list and a properties
+  pane, with the proportions of the tool the format comes from. The palette is that tool's dark one --
+  graphite chrome, one blue for what is selected -- because this is a place where a reader looks at a file,
+  and a file is read best with nothing between the eye and the values.
+
+  The same element is moved into the source viewer when a script is opened. It is moved rather than copied
+  so that there is one tree: filtering, expansion and selection are the same state in both places, and a
+  reader who opened a script is still looking at the directory they opened it from.
+*/
+
+.explorer {
+  max-width: 1180px;
+}
+
+.explorer-window {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 1180px;
+  border: 1px solid #3c3c3c;
+  border-radius: 2px;
+  background-color: #1e1e1e;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  color: #d4d4d4;
+  font-family: "Segoe UI", Tahoma, Arial, Helvetica, sans-serif;
+}
+
+.explorer-titlebar {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid #3c3c3c;
+  background-color: #333333;
+  color: #e8e8e8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: default;
+  user-select: none;
+}
+
+/* The count sits at the far end of the title bar, where a window's filename would be. */
+.explorer-titlebar-count {
+  margin-left: auto;
+  color: #a8a8a8;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.explorer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-bottom: 1px solid #3c3c3c;
+  background-color: #252526;
+}
+
+.explorer-input {
+  flex: 0 1 300px;
+  min-width: 130px;
+  height: 22px;
+  padding: 2px 6px;
+  border: 1px solid #3f3f46;
+  border-radius: 2px;
+  background-color: #1b1b1b;
+  color: #d4d4d4;
+  font-size: 12px;
+}
+
+.explorer-input::placeholder {
+  color: #7a7a7a;
+}
+
+.explorer-input:focus {
+  border-color: #4b9fd5;
+  outline: none;
+  box-shadow: 0 0 0 1px #4b9fd5;
+}
+
+.explorer-count {
+  overflow: hidden;
+  color: #9d9d9d;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explorer-count.is-empty {
+  color: #e08a8a;
+}
+
+.explorer-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.explorer-action {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid #464646;
+  border-radius: 2px;
+  background-color: #333333;
+  color: #d4d4d4;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.explorer-action:hover {
+  background-color: #3d3d3d;
+  border-color: #5a5a5a;
+}
+
+.explorer-action:focus-visible {
+  outline: 1px solid #4b9fd5;
+}
+
+/* ----------------------------------------------------------------- the panes */
+
+.explorer-layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 420px;
+}
+
+.explorer-tree {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 56%;
+  max-height: 64vh;
+  overflow: auto;
+  margin: 0;
+  padding: 2px 0 10px;
+  color: #d4d4d4;
+  font-size: 12px;
+  list-style: none;
+}
+
+/* Indentation belongs to the list, so a row's highlight runs the width of its own level. */
+.explorer-children {
+  margin: 0;
+  padding-left: 20px;
+  list-style: none;
+}
+
+.explorer-collapsed > .explorer-children {
+  display: none;
+}
+
+.explorer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 8px 0 2px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+
+.explorer-row:hover {
+  background-color: #2a2d2e;
+}
+
+.explorer-row.is-selected {
+  background-color: #2d5b8f;
+  border-color: #2d5b8f;
+  color: #fff;
+}
+
+.explorer-row.is-selected .explorer-name {
+  color: #fff;
+}
+
+.explorer-row.is-selected .explorer-class {
+  color: #cfe0f5;
+}
+
+.explorer-row:focus-visible {
+  outline: 1px dotted #9a9a9a;
+  outline-offset: -2px;
+}
+
+/* The caret. A collapsed row points right, an open one points down, and a leaf has none at all. */
+.explorer-arrow {
+  position: relative;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.explorer-arrow::before {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #b4b4b4;
+  clip-path: polygon(10% 8%, 90% 8%, 50% 90%);
+  content: "";
+}
+
+.explorer-collapsed > .explorer-row .explorer-arrow::before {
+  clip-path: polygon(8% 10%, 92% 50%, 8% 90%);
+}
+
+.explorer-row.is-selected .explorer-arrow::before {
+  border-left-color: #fff;
+}
+
+.explorer-arrow.is-leaf {
+  cursor: default;
+}
+
+.explorer-arrow.is-leaf::before {
+  display: none;
+}
+
+.explorer-name {
+  flex: 0 1 auto;
+  overflow: hidden;
+  color: #e2e2e2;
+  text-overflow: ellipsis;
+}
+
+.explorer-class {
+  flex: 0 0 auto;
+  color: #8a8a8a;
+  font-size: 11px;
+}
+
+/* --------------------------------------------------------------- the marks */
+
+/*
+  A mark for what kind of thing a row is, drawn rather than spelled out. Roblox has hundreds of classes
+  and a handful of kinds, and a reader scanning a tree needs the kind far more than the word: the word is
+  already at the end of the row.
+*/
+.explorer-icon {
+  position: relative;
+  flex: 0 0 16px;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+}
+
+.explorer-icon::before,
+.explorer-icon::after {
+  position: absolute;
+  content: "";
+}
+
+/* Code: a sheet with a folded corner. */
+.explorer-icon-script::before {
+  top: 2px;
+  right: 3px;
+  bottom: 2px;
+  left: 3px;
+  border-radius: 1px;
+  background-color: #46738f;
+}
+
+.explorer-icon-script::after {
+  top: 2px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  background-color: #8fd0f2;
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+/* A part: a block, with its top face lighter than its side. */
+.explorer-icon-part::before {
+  top: 5px;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  background-color: #a9712f;
+}
+
+.explorer-icon-part::after {
+  top: 2px;
+  right: 2px;
+  left: 2px;
+  height: 4px;
+  background-color: #d99a4d;
+  clip-path: polygon(50% 0, 100% 55%, 100% 100%, 0 100%, 0 55%);
+}
+
+/* An interface element: a frame with a bar across its top. */
+.explorer-icon-gui::before {
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  border: 1px solid #8f7ad6;
+  border-radius: 1px;
+}
+
+.explorer-icon-gui::after {
+  top: 2px;
+  right: 2px;
+  left: 2px;
+  height: 3px;
+  border-radius: 1px 1px 0 0;
+  background-color: #8f7ad6;
+}
+
+/* A container: a folder. */
+.explorer-icon-folder::before {
+  top: 6px;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  border-radius: 1px;
+  background-color: #8a7346;
+}
+
+.explorer-icon-folder::after {
+  top: 3px;
+  left: 2px;
+  width: 7px;
+  height: 4px;
+  border-radius: 1px 1px 0 0;
+  background-color: #8a7346;
+}
+
+/* A stored value: a diamond. */
+.explorer-icon-value::before {
+  top: 4px;
+  left: 4px;
+  width: 8px;
+  height: 8px;
+  background-color: #5f9e6a;
+  transform: rotate(45deg);
+}
+
+/* Something that makes a sound: a ring. */
+.explorer-icon-sound::before {
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  border: 2px solid #c06a8e;
+  border-radius: 50%;
+}
+
+/* Anything else. */
+.explorer-icon-object::before {
+  top: 3px;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  border: 1px solid #7f8c96;
+  border-radius: 50%;
+}
+
+/* The panel's copy of the mark, at the size a heading wants. */
+.explorer-icon-lg {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  transform: scale(1.4);
+  transform-origin: left center;
+}
+
+/* -------------------------------------------------------------- the panel */
+
+.explorer-details {
+  flex: 0 0 44%;
+  max-height: 64vh;
+  overflow: auto;
+  padding: 6px 8px 12px;
+  border-left: 1px solid #3c3c3c;
+  background-color: #252526;
+}
+
+.explorer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.explorer-head-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.explorer-details-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #e8e8e8;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.explorer-crumbs {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: #8a8a8a;
+  font-size: 11px;
+}
+
+.explorer-meta {
+  margin: 0 0 6px;
+  color: #9d9d9d;
+  font-size: 11px;
+}
+
+.explorer-hint {
+  margin: 6px 0 0;
+  color: #9d9d9d;
+  font-size: 12px;
+}
+
+/*
+  The property table writes its three kinds of column differently on purpose: the name is what a reader
+  looks for, the type is what they check once they have found it, and the value is what they read.
+*/
+.explorer-props {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.explorer-props thead th {
+  position: sticky;
+  top: -6px;
+  padding: 2px 6px;
+  border-bottom: 1px solid #3c3c3c;
+  background-color: #2d2d30;
+  color: #9d9d9d;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.explorer-props tbody td {
+  padding: 2px 6px;
+  border-bottom: 1px solid #303030;
+  vertical-align: top;
+}
+
+.explorer-prop-name {
+  width: 40%;
+  overflow-wrap: anywhere;
+  color: #d7d7d7;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-weight: 600;
+}
+
+.explorer-prop-type {
+  width: 1%;
+  color: #8a8a8a;
+  font-size: 11px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.explorer-prop-value {
+  overflow-wrap: anywhere;
+  color: #cfcfcf;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+}
+
+/* A script's source is the one value worth reading in full, so it scrolls in its own box. */
+.explorer-source {
+  max-height: 220px;
+  margin: 0;
+  overflow: auto;
+  padding: 4px 6px;
+  border: 1px solid #333333;
+  border-radius: 2px;
+  background-color: #1b1b1b;
+  color: #cfcfcf;
+  font-size: 11.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.explorer-copy,
+.explorer-open {
+  padding: 1px 8px;
+  border: 1px solid #464646;
+  border-radius: 2px;
+  background-color: #333333;
+  color: #d4d4d4;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.explorer-copy:hover,
+.explorer-open:hover {
+  background-color: #3d3d3d;
+  border-color: #5a5a5a;
+}
+
+/* The field the older copy path selects from. Off-screen rather than hidden, because a hidden field
+   cannot be selected, and a selected field is the whole mechanism. */
+.explorer-clip {
+  position: fixed;
+  top: -1000px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.explorer-note {
+  margin: 8px 0 0;
+  color: #d7ba7d;
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------- source viewer */
+
+/*
+  The reader is a frame over the page: the source on the left, the explorer on the right. The explorer is
+  the same element the page was showing, moved into the frame's second column, so the directory a reader
+  opened a script from is still there beside it -- which is the whole reason to open one from the tree
+  rather than from the model's page.
+*/
+.source-modal {
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.source-frame {
+  display: grid;
+  grid-template-rows: 30px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 560px;
+  grid-template-areas:
+    "head side"
+    "code side";
+  width: calc(100% - 96px);
+  height: calc(100% - 96px);
+  overflow: hidden;
+  border: 1px solid #3c3c3c;
+  border-radius: 2px;
+  background-color: #1e1e1e;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.source-head {
+  grid-area: head;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border-bottom: 1px solid #3c3c3c;
+  background-color: #2d2d30;
+}
+
+.source-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.source-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  padding: 0 6px 0 10px;
+  border-right: 1px solid #3c3c3c;
+  color: #c2c2c2;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+
+.source-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-tab:hover {
+  background-color: #37373d;
+}
+
+.source-tab.is-active {
+  background-color: #1e1e1e;
+  box-shadow: inset 0 -2px 0 #4b9fd5;
+  color: #e8e8e8;
+}
+
+.source-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: #9d9d9d;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.source-tab-close:hover {
+  background-color: #46464e;
+  color: #fff;
+}
+
+.source-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+}
+
+.source-tool {
+  height: 20px;
+  padding: 0 9px;
+  border: 1px solid #464646;
+  border-radius: 2px;
+  background-color: #333333;
+  color: #d4d4d4;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.source-tool:hover {
+  background-color: #3d3d3d;
+  border-color: #5a5a5a;
+}
+
+.source-code {
+  grid-area: code;
+  overflow: auto;
+  padding: 6px 0 6px;
+  background-color: #1e1e1e;
+}
+
+/* One line, its number and its text. The number stays put when the source scrolls sideways. */
+.source-line {
+  display: flex;
+  min-height: 18px;
+  color: #d4d4d4;
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.source-no {
+  position: sticky;
+  left: 0;
+  flex: 0 0 52px;
+  padding-right: 8px;
+  border-right: 1px solid #333333;
+  background-color: #252526;
+  color: #6e7681;
+  text-align: right;
+  user-select: none;
+}
+
+.source-txt {
+  flex: 1 1 auto;
+  padding: 0 12px 0 10px;
+  tab-size: 4;
+  -moz-tab-size: 4;
+}
+
+.source-line:hover {
+  background-color: #2a2d2e;
+}
+
+.source-line:hover .source-no {
+  background-color: #2f3336;
+}
+
+/* The colours of the language, as the dark tools that show it write them. */
+.source-comment { color: #6a9955; }
+.source-string { color: #ce9178; }
+.source-number { color: #b5cea8; }
+.source-keyword { color: #569cd6; font-weight: 700; }
+.source-global { color: #4ec9b0; }
+.source-operator { color: #c586c0; }
+
+.source-note {
+  margin: 10px 12px;
+  color: #9d9d9d;
+  font-size: 12px;
+}
+
+.source-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid #3c3c3c;
+  background-color: #1e1e1e;
+}
+
+/* The moved window fills its column, and its two panes stack rather than sit side by side. */
+.source-side .explorer-window {
+  flex: 1 1 auto;
+  max-width: none;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.source-side .explorer-layout {
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.source-side .explorer-tree {
+  flex: 1 1 55%;
+  width: auto;
+  max-height: none;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.source-side .explorer-details {
+  flex: 1 1 45%;
+  width: auto;
+  max-height: none;
+  border-left: 0;
+}
+
+/*
+  Below the theme's narrow breakpoint the frame becomes one column: the source, then the directory. The
+  directory is not dropped, because a reader on a small screen still needs to know where they are.
+*/
+@media (max-width: 991px) {
+  .source-frame {
+    grid-template-rows: 30px minmax(0, 1fr) 42%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "head"
+      "code"
+      "side";
+    width: calc(100% - 24px);
+    height: calc(100% - 24px);
+  }
+
+  .source-side {
+    border-top: 1px solid #3c3c3c;
+    border-left: 0;
+  }
+
+  .source-side .explorer-layout {
+    flex-direction: row;
+  }
+
+  .source-side .explorer-tree {
+    flex: 1 1 auto;
+    width: 56%;
+    border-bottom: 0;
+  }
+
+  .source-side .explorer-details {
+    flex: 0 0 44%;
+    border-left: 1px solid #3c3c3c;
+  }
+
+  .explorer-layout {
+    flex-direction: column;
+  }
+
+  .explorer-tree {
+    width: auto;
+    max-height: 55vh;
+  }
+
+  .explorer-details {
+    flex: 1 1 auto;
+    width: auto;
+    max-height: 40vh;
+    border-top: 1px solid #3c3c3c;
+    border-left: 0;
+  }
+}

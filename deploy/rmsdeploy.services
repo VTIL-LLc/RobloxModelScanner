@@ -269,6 +269,21 @@ restart      = always
 # On Linux and macOS the site is a directory that Mono's xsp host serves, so each
 # one has an xsp entry instead, started and supervised in the same way -- which
 # is what gives a web site the same run logs as a service.
+#
+# WHERE THE ACCOUNTS LIVE
+#   Not in the directory being served. A publish mirrors its output, which means it
+#   removes whatever the build did not produce -- and the account database is not
+#   produced by a build. Left to its default of ~/App_Data it would be deleted on
+#   every publish, taking every operator and every password with it, and the site
+#   would come back up having bootstrapped a new administrator with a password
+#   nobody has read yet.
+#
+#   So each site is pointed outside its own content root, at a directory beside it
+#   that the deployer never writes to: artifacts/site-data for the analytics site,
+#   artifacts/<name>-site-data for the consoles. SITE_AUTH_DATABASE is the same
+#   setting the site's own configuration reads, which is why every environment
+#   below names it. The database and the initial-admin.txt written beside it then
+#   survive a publish, and an operator keeps the account they were given.
 # -----------------------------------------------------------------------------
 
 [webforms-site]
@@ -282,7 +297,7 @@ arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-
 # routed to loopback 30449, so a site bound anywhere else answers the proxy
 # with a refused connection and the name reports a bad gateway.
 port         = 30449
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key; SITE_AUTH_DATABASE=%ROOT%/artifacts/site-data/site-auth.db
 platforms    = windows
 restart      = always
 
@@ -292,7 +307,7 @@ description  = RMS analytics site, served by Mono xsp
 working_dir  = %ROOT%/artifacts/site
 executable   = xsp4
 arguments    = --port; 30449; --root; %ROOT%/artifacts/site; --nonstop
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/api-key; SITE_AUTH_DATABASE=%ROOT%/artifacts/site-data/site-auth.db
 platforms    = linux macos
 restart      = always
 
@@ -303,7 +318,7 @@ working_dir  = %ROOT%/artifacts/local
 windows.executable = C:\Program Files\IIS Express\iisexpress.exe
 arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-devops-site; -systray:false
 port         = 8082
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/devops-site-data/site-auth.db
 platforms    = windows
 restart      = always
 
@@ -313,7 +328,7 @@ description  = RMS DevOps site, served by Mono xsp
 working_dir  = %ROOT%/artifacts/devops-site
 executable   = xsp4
 arguments    = --port; 8082; --root; %ROOT%/artifacts/devops-site; --nonstop
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/devops.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/devops-site-data/site-auth.db
 platforms    = linux macos
 restart      = always
 
@@ -324,7 +339,7 @@ working_dir  = %ROOT%/artifacts/local
 windows.executable = C:\Program Files\IIS Express\iisexpress.exe
 arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-configuration-site; -systray:false
 port         = 8083
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/configuration-site-data/site-auth.db
 platforms    = windows
 restart      = always
 
@@ -334,7 +349,7 @@ description  = RMS Configuration site, served by Mono xsp
 working_dir  = %ROOT%/artifacts/configuration-site
 executable   = xsp4
 arguments    = --port; 8083; --root; %ROOT%/artifacts/configuration-site; --nonstop
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/configuration.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/configuration-site-data/site-auth.db
 platforms    = linux macos
 restart      = always
 
@@ -345,7 +360,7 @@ working_dir  = %ROOT%/artifacts/local
 windows.executable = C:\Program Files\IIS Express\iisexpress.exe
 arguments    = -config:%ROOT%\artifacts\local\applicationhost.config; -site:rms-docs-site; -systray:false
 port         = 8084
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/docs-site-data/site-auth.db
 platforms    = windows
 restart      = always
 
@@ -355,6 +370,6 @@ description  = RMS documentation site, served by Mono xsp
 working_dir  = %ROOT%/artifacts/docs-site
 executable   = xsp4
 arguments    = --port; 8084; --root; %ROOT%/artifacts/docs-site; --nonstop
-environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token
+environment  = SITE_SERVICE_KEY_FILE=%ROOT%/artifacts/credentials/docs.token; SITE_AUTH_DATABASE=%ROOT%/artifacts/docs-site-data/site-auth.db
 platforms    = linux macos
 restart      = always

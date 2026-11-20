@@ -311,6 +311,38 @@ namespace Scanner.WebForms.Infrastructure
             builder.Append(Option("0", "Matched nothing", current.HasDetections, false));
             builder.Append("</select>");
             builder.Append("</div>");
+            builder.Append("</div>");
+
+            builder.Append("<div class=\"form-group form-group-sm\">");
+            builder.Append("<label for=\"filter-order\" class=\"col-sm-2 control-label\">Order</label>");
+            builder.Append("<div class=\"col-sm-4\">");
+            builder.Append("<select class=\"form-control\" id=\"filter-order\" name=\"order\">");
+
+            // The menu is the filter's own list rather than a copy written here, so an order the reader can pick is
+            // an order the address reader can resolve.
+            foreach (CatalogueFilter.OrderChoice choice in CatalogueFilter.Orders)
+            {
+                builder.Append("<option value=\"").Append(Html.Attribute(choice.Key)).Append("\"")
+                       .Append(choice.Key == current.OrderKey ? " selected=\"selected\"" : string.Empty)
+                       .Append(">").Append(Html.Encode(choice.Label)).Append("</option>");
+            }
+
+            builder.Append("</select>");
+            builder.Append("</div>");
+
+            builder.Append("<label for=\"filter-size\" class=\"col-sm-2 control-label\">Rows</label>");
+            builder.Append("<div class=\"col-sm-2\">");
+            builder.Append("<select class=\"form-control\" id=\"filter-size\" name=\"size\">");
+
+            foreach (int size in SizesFor(current.PageSize))
+            {
+                builder.Append("<option value=\"").Append(size.ToString(CultureInfo.InvariantCulture)).Append("\"")
+                       .Append(size == current.PageSize ? " selected=\"selected\"" : string.Empty)
+                       .Append(">").Append(Html.Number(size)).Append("</option>");
+            }
+
+            builder.Append("</select>");
+            builder.Append("</div>");
 
             builder.Append("<div class=\"col-sm-2\">");
             builder.Append("<button type=\"submit\" class=\"btn btn-default btn-sm\">Apply</button>");
@@ -338,6 +370,46 @@ namespace Scanner.WebForms.Infrastructure
             builder.Append("</form>");
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// The page sizes the rows menu offers.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The ends are the filter's own constants: the first entry is the size a page is read at when the address
+        /// says nothing, and the last is the largest the API will honour. The two in between exist so that a reader
+        /// who wants more rows has a step to take that is not all the way to the ceiling.
+        /// </para>
+        /// <para>
+        /// Five hundred rows is a page nobody reads top to bottom, and that is not what it is for -- it is what a
+        /// visitor picks when they are exporting a set or reading past a search. The ceiling stays where the API
+        /// puts it, so the menu cannot offer a page the API would quietly shrink.
+        /// </para>
+        /// </remarks>
+        private static readonly int[] RowSizes = { CatalogueFilter.DefaultPageSize, 100, 250, CatalogueFilter.MaximumPageSize };
+
+        /// <summary>
+        /// Builds the sizes a rows menu shows for the size currently in force.
+        /// </summary>
+        /// <param name="current">The page size the filter carries.</param>
+        /// <returns>The sizes, in ascending order.</returns>
+        /// <remarks>
+        /// A size that is not one of the offered ones is added rather than dropped. A select whose options do not
+        /// include its current value shows the first option instead, which would tell the reader they are looking
+        /// at fifty rows when the address asked for a hundred and thirty.
+        /// </remarks>
+        private static int[] SizesFor(int current)
+        {
+            if (Array.IndexOf(RowSizes, current) >= 0) return RowSizes;
+
+            int[] sizes = new int[RowSizes.Length + 1];
+
+            sizes[0] = current;
+            Array.Copy(RowSizes, 0, sizes, 1, RowSizes.Length);
+            Array.Sort(sizes);
+
+            return sizes;
         }
 
         /// <summary>
@@ -1185,6 +1257,14 @@ namespace Scanner.WebForms.Infrastructure
 
             builder.Append(Html.Field("Store page", StoreLink(model)));
             builder.Append(Html.Field("Preview", PreviewLink(model)));
+
+            builder.Append(Html.Field(
+                "Structure",
+                Html.Link(
+                    "/Explorer.aspx?id=" + identifier,
+                    "explore the model",
+                    "Reads the payload in your browser and draws the instances inside it: every class, every "
+                    + "name and every property, without the server parsing any of it.")));
 
             builder.Append(Html.Field(
                 "Download",

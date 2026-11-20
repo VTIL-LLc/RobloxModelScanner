@@ -36,8 +36,43 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+
+const { minifyCss } = require('./tools/minify-css');
+
+// ================================================================================================
+// THE STYLESHEET
+// ================================================================================================
+//
+// The page loads two stylesheets, and only one of them used to be built. The framework's is vendored
+// and was minified once, by hand, before it was committed; this site's own was edited in place under
+// Content/ and served exactly as written, which meant the only file in the repository that a publish
+// shipped unminified was the one this project actually maintains.
+//
+// It is now a source under src/ like everything else, and it is written out to Content/site.css by this
+// build. The output is committed beside the script, for the same reason the script is: a checkout that
+// has never had npm installed still runs this site.
+//
+// Emitting it from here rather than from a loader keeps the dependency list to what it is. A loader
+// would parse the CSS into a module graph this project has no use for: there is one stylesheet, nothing
+// imports it, and nothing about it is dynamic. What is wanted is a file that is copied with its comments
+// and its layout removed, which is a hundred lines in tools/minify-css.js and no new package.
+class StylesheetPlugin {
+    apply(compiler) {
+        compiler.hooks.thisCompilation.tap('Stylesheet', (compilation) => {
+            compilation.hooks.processAssets.tap(
+                { name: 'Stylesheet', stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL },
+                () => {
+                    const source = fs.readFileSync(path.resolve(__dirname, 'src', 'site.css'), 'utf8');
+                    const css = minifyCss(source);
+
+                    compilation.emitAsset('Content/site.css', new compiler.webpack.sources.RawSource(css));
+                });
+        });
+    }
+}
 
 module.exports = {
     // The sources are modules, so they are parsed as modules. Nothing is transpiled: the browsers that
@@ -116,14 +151,16 @@ module.exports = {
     },
 
     output: {
-        // Written into the web project beside the stylesheets, because that is where the site's own
-        // element in the document points.
-        path: path.resolve(__dirname, '..', 'Scripts'),
-        filename: 'site.js',
+        // The web project itself, because this build writes two things into it: the script under
+        // Scripts/, which is where the site's own element in the document points, and the stylesheet
+        // under Content/, which is where the document's link points.
+        path: path.resolve(__dirname, '..'),
+        filename: 'Scripts/site.js',
 
-        // The directory holds files this build did not produce -- the icons, the stylesheets -- so it is
-        // not swept. Nothing is named with a hash, because the page names one file and a server-rendered
-        // element cannot know a hash it would have to be given.
+        // The directories hold files this build did not produce -- the icons, the framework stylesheet --
+        // so they are not swept. Nothing is named with a hash, because the page names one file and a
+        // server-rendered element cannot know a hash it would have to be given. The address is stamped
+        // with the file's write time instead, which is the server's job and not the build's.
         clean: false,
 
         // The bundle is an ordinary script of its own, not a library anything else imports.
@@ -133,6 +170,9 @@ module.exports = {
         // Nothing above the file: no banner. There is no `output.comments` here to set, because webpack
         // 5 has no such option -- every comment, the scaffolding included, is removed by the minifier.
     },
+
+    // The build writes the stylesheet as well as the script. See the note above it.
+    plugins: [new StylesheetPlugin()],
 
     performance: {
         // The ceiling here is a guard, not an optimisation: this script is a few kilobytes minified,

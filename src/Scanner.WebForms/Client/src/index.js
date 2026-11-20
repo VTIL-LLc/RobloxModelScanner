@@ -16,6 +16,7 @@
 import { onRefresh, startLiveRegions } from './live';
 import { restoreSorting, wireSorting } from './sorting';
 import { wireDismiss, wireFilters } from './alerts';
+import { startExplorer } from './explorer';
 
 /**
  * Wires everything that lives inside an element.
@@ -36,6 +37,10 @@ function wire(root) {
  */
 function start() {
     wire(document);
+
+    // The explorer is not part of a refreshing region: it reads its payload once, and a refresh would replace
+    // the element it filled. It is started once, beside the regions rather than inside them.
+    startExplorer();
 
     // A refreshed region arrives with a table that has never been wired and, if the reader had sorted it,
     // an order that has to be put back on it. Both happen after the contents are in place, which is why

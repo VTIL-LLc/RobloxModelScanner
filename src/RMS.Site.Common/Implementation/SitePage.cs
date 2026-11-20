@@ -417,11 +417,13 @@ namespace RMS.Site.Common.Implementation
                 + "<link rel=\"shortcut icon\" href=\"/favicon.ico\" type=\"image/x-icon\" />"
                 + "<link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" />"
                 + "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/favicon-32.png\" />"
-                + "<link rel=\"stylesheet\" href=\"/Content/css7af7.css\" />"
-                + "<link rel=\"stylesheet\" href=\"/Content/site.css\" />",
+                + "<link rel=\"stylesheet\" href=\"/Content/css7af7.css{3}\" />"
+                + "<link rel=\"stylesheet\" href=\"/Content/site.css{4}\" />",
                 Html.Attribute(Policy),
                 Html.Encode(title),
-                Settings.RefreshSeconds.ToString(CultureInfo.InvariantCulture));
+                Settings.RefreshSeconds.ToString(CultureInfo.InvariantCulture),
+                StaticVersion("~/Content/css7af7.css"),
+                StaticVersion("~/Content/site.css"));
         }
 
         /// <summary>
