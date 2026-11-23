@@ -97,7 +97,7 @@ public static class ScannerSettingsFactory
     /// a list of account identifiers compiled into a program is a list nobody can change without
     /// rebuilding it.
     /// </remarks>
-    private static readonly long[] DefaultIgnoredCreators = [5845922908, 1395153130];
+    private static readonly long[] DefaultIgnoredCreators = [1];
 
     /// <summary>
     /// Reads and bounds the scanner's settings.
